@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shan's Guitar | Guitar Store</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Outfit:wght@300..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ==================== HEADER ==================== -->
+<header class="site-header" id="siteHeader">
+  <a href="#home" class="logo">shan's guitar</a>
+
+  <nav class="main-nav" id="mainNav" aria-label="Main navigation">
+    <a href="#home" class="active">HOME</a>
+    <a href="#shop">SHOP</a>
+    <a href="#story">OUR STORY</a>
+    <a href="#brands">BRANDS</a>
+    <a href="#contact">CONTACT</a>
+  </nav>
+
+  <div class="header-tools">
+    <!-- CART ICON -->
+    <button class="cart-btn" id="cartBtn" aria-label="View cart">
+      <svg class="cart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="9" cy="20" r="1.6"></circle>
+        <circle cx="18" cy="20" r="1.6"></circle>
+        <path d="M1.5 2h3.2l2.4 12.1a1.9 1.9 0 0 0 1.9 1.5h8.6a1.9 1.9 0 0 0 1.9-1.5L21.5 6H5.2"></path>
+      </svg>
+      <span class="cart-count" id="cartCount">0</span>
+    </button>
+
+    <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<!-- ==================== HERO / HOME ==================== -->
+<section id="home" class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Shan's premiere guitar store</p>
+    <h1>Find Your<br><em>Perfect Sound.</em></h1>
+    <p class="hero-text">
+      From hand-crafted acoustics to vintage electrics — every guitar at
+      Shan's is hand-picked, professionally set up, and ready to play.
+    </p>
+    <div class="hero-actions">
+      <a class="btn btn-gold" href="#shop">SHOP GUITARS</a>
+      <a class="btn btn-outline" href="#story">OUR STORY</a>
+    </div>
+  </div>
+
+  <div class="hero-image">
+    <img src="images/guitar_background_image1.webp" alt="Wall of guitars at Shan's Guitar store">
+  </div>
+</section>
+
+<!-- ==================== BESTSELLERS ==================== -->
+<section id="bestsellers" class="bestsellers section-pad reveal">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Handpicked for you</p>
+      <h2>Check Our <em>Bestsellers!</em></h2>
+    </div>
+    <p class="section-intro">
+      Our most-loved guitars, chosen by musicians just like you.
+      Every model is in stock and ready to play today.
+    </p>
+  </div>
+
+  <div class="tabs-row">
+    <div class="category-tabs" id="bestsellerTabs" role="tablist">
+      <button class="tab active" data-filter="all"         role="tab" aria-selected="true">ALL</button>
+      <button class="tab"        data-filter="electric"    role="tab" aria-selected="false">ELECTRIC</button>
+      <button class="tab"        data-filter="acoustic"    role="tab" aria-selected="false">ACOUSTIC</button>
+      <button class="tab"        data-filter="bass"        role="tab" aria-selected="false">BASS</button>
+      <button class="tab"        data-filter="accessories" role="tab" aria-selected="false">ACCESSORIES</button>
+    </div>
+
+    <div class="carousel-nav">
+      <button class="carousel-btn" id="bsPrev" data-dir="-1" aria-label="Previous guitars">&#8249;</button>
+      <button class="carousel-btn" id="bsNext" data-dir="1"  aria-label="Next guitars">&#8250;</button>
+    </div>
+  </div>
+
+  <div class="carousel">
+    <div class="carousel-track" id="bestsellerTrack"></div>
+  </div>
+</section>
+
+<!-- ==================== OUR STORY ==================== -->
+<section id="story" class="story section-pad reveal">
+  <div class="story-image">
+    <img src="images/ELECTRIC_G3.jpg" alt="Inside the Shan's Guitar showroom">
+  </div>
+
+  <div class="story-copy">
+    <p class="eyebrow">Our story</p>
+    <h2>About <em>Shan's Guitar</em></h2>
+    <p>
+      Shan's Guitar started as one person's obsession with finding the
+      perfect acoustic. What began as a tiny workshop has grown into one
+      of the Philippines' most-loved guitar specialist stores — built on
+      honesty, tone, and craft.
+    </p>
+    <p>
+      We don't sell keyboards or drum kits. We know guitars deeply.
+      Every instrument on our floor has been played and approved by our
+      team before it reaches yours.
+    </p>
+    <a class="btn btn-gold" href="#brands">MORE ABOUT US</a>
+
+    <div class="location-note">
+      <strong>Est. 2026</strong>
+      <span>Dumaguete, Philippines</span>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== OUR BRANDS ==================== -->
+<section id="brands" class="brands reveal">
+  <div class="brands-inner">
+    <p class="eyebrow">Authorized dealer</p>
+    <h2>Our <em>Brands</em></h2>
+    <p class="brands-intro">
+      We carry only the guitars we believe in — eight of the world's finest
+      makers, every one an authorised partnership.
+    </p>
+
+    <div class="brand-tabs" id="brandTabs" role="tablist"></div>
+    <article class="brand-feature" id="brandFeature"></article>
+    <div class="brand-grid" id="brandGrid"></div>
+  </div>
+</section>
+
+<!-- ==================== SHOP ==================== -->
+<section id="shop" class="shop-page">
+  <header class="shop-title-section">
+    <p class="eyebrow">Browse &amp; buy</p>
+    <h2>Shop <em>All Guitars</em></h2>
+
+    <div class="shop-toolbar">
+      <span id="resultCount">Showing 0 items</span>
+
+      <div class="toolbar-right">
+        <input type="search" id="searchInput" class="search-input"
+               placeholder="Search guitars…" aria-label="Search guitars">
+        <label class="sort-label">
+          SORT:
+          <select id="sortSelect">
+            <option value="featured">Featured</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+            <option value="newest">Newest first</option>
+            <option value="name">Name: A–Z</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <div class="shop-layout">
+    <aside class="filters" id="filters">
+      <div class="filter-block">
+        <h3>CATEGORIES</h3>
+        <label><input type="radio" name="category" value="all" checked> Featured <span id="countAll">0</span></label>
+        <label><input type="radio" name="category" value="electric"> Electric <span data-count="electric">0</span></label>
+        <label><input type="radio" name="category" value="acoustic"> Acoustic <span data-count="acoustic">0</span></label>
+        <label><input type="radio" name="category" value="bass"> Bass <span data-count="bass">0</span></label>
+        <label><input type="radio" name="category" value="classical"> Classical <span data-count="classical">0</span></label>
+        <label><input type="radio" name="category" value="accessories"> Accessories <span data-count="accessories">0</span></label>
+      </div>
+
+      <div class="filter-block">
+        <h3>MAX PRICE</h3>
+        <div class="price-range">
+          <span>₱0</span>
+          <span id="priceOut">₱200,000</span>
+        </div>
+        <input class="range" type="range" id="priceRange" min="0" max="200000" step="500" value="200000">
+      </div>
+
+      <div class="filter-block">
+        <h3>AVAILABILITY</h3>
+        <label><input type="checkbox" class="avail" value="in-store"> In Store now</label>
+        <label><input type="checkbox" class="avail" value="online"> Online Only</label>
+        <label><input type="checkbox" class="avail" value="pre-order"> Pre-Order</label>
+      </div>
+
+      <button class="btn btn-outline-dark full" id="clearFilters">CLEAR FILTERS</button>
+    </aside>
+
+    <div class="shop-products">
+      <div class="product-grid three-col" id="shopGrid"></div>
+
+      <div class="empty-state" id="emptyState" hidden>
+        <h3>No guitars found</h3>
+        <p>Try widening your price range or clearing the filters.</p>
+      </div>
+
+      <div class="load-more-wrap">
+        <button class="btn btn-outline-dark" id="loadMore">LOAD MORE</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== FOOTER ==================== -->
+<footer id="contact" class="site-footer">
+  <div class="footer-brand">
+    <div class="logo">shan's guitar</div>
+    <p>+63 35 000 0000</p>
+    <p>business@shansguitar.com.ph</p>
+    <p>Dumaguete City, Negros Oriental</p>
+  </div>
+
+  <div>
+    <h4>SHOP</h4>
+    <a href="#shop" data-shop-cat="electric">Electric Guitars</a>
+    <a href="#shop" data-shop-cat="acoustic">Acoustic Guitars</a>
+    <a href="#shop" data-shop-cat="classical">Classical Guitars</a>
+    <a href="#shop" data-shop-cat="bass">Bass Guitars</a>
+    <a href="#shop" data-shop-cat="accessories">Guitar Accessories</a>
+  </div>
+
+  <div>
+    <h4>QUICK LINKS</h4>
+    <a href="#story">About Us</a>
+    <a href="#contact">Contact</a>
+    <a href="#brands">Our Brands</a>
+    <a href="#shop">Gift Cards</a>
+  </div>
+
+  <div class="footer-app">
+    <h4>GET THE APP</h4>
+    <p>Browse our full catalogue, book setups, and manage your membership from your phone.</p>
+    <div class="app-buttons">
+      <button type="button">Google Play</button>
+      <button type="button">App Store</button>
+    </div>
+  </div>
+
+  <div class="copyright">
+    © <span id="year">2026</span> Shan's Guitar. All rights reserved.
+    <span>Privacy Policy</span>
+    <span>Terms of Service</span>
+  </div>
+</footer>
+
+<!-- ==================== QUICK VIEW MODAL ==================== -->
+<div class="modal" id="quickView" hidden>
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="qvTitle">
+    <button class="modal-close" data-close aria-label="Close">&times;</button>
+    <div class="modal-media"><img id="qvImg" src="" alt=""></div>
+    <div class="modal-body">
+      <p class="product-type" id="qvCat"></p>
+      <h3 id="qvTitle"></h3>
+      <p class="price" id="qvPrice"></p>
+      <p class="qv-desc" id="qvDesc"></p>
+      <ul class="qv-meta" id="qvMeta"></ul>
+      <div class="modal-actions">
+        <button class="btn btn-gold" id="qvAdd">ADD TO CART</button>
+        <a class="btn btn-outline-dark" href="#contact" data-close>ENQUIRE</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
