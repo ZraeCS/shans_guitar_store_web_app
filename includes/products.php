@@ -25,8 +25,9 @@
    Brands stay hard-coded on purpose (marketing content, not inventory).
 */
 
-/* ---------- SEED / FALLBACK CATALOGUE (unchanged) ---------- */
-$PRODUCTS = [
+/* ---------- SEED / FALLBACK CATALOGUE ----------
+   Also read by seed.php (step 2) to fill the guitars table once. */
+$SEED_PRODUCTS = [
     ['id' => 1,  'name' => 'Fender Stratocaster II',    'brand' => 'Fender',    'category' => 'electric',    'price' => 35500,  'badge' => 'Bestseller', 'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/Fender_Strat_2_CoralRed.webp',   'desc' => 'Alder body, maple neck and three single-coils — the classic bell-like Strat chime, professionally set up in store.'],
     ['id' => 2,  'name' => 'Yamaha FG800',              'brand' => 'Yamaha',    'category' => 'acoustic',    'price' => 15500,  'badge' => 'Staff Pick', 'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/Yamaha_FG800.jpg',      'desc' => 'Solid spruce top dreadnought with a big, warm voice. The best first serious acoustic you can buy.'],
     ['id' => 3,  'name' => 'Fender Stratocaster White', 'brand' => 'Fender',    'category' => 'electric',    'price' => 45000,  'badge' => 'Popular',    'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/Fender-player-ii-stratocaster-wh.jpg', 'desc' => 'Olympic White finish with a rosewood fingerboard — bright, articulate and endlessly versatile.'],
@@ -42,6 +43,10 @@ $PRODUCTS = [
     ['id' => 13, 'name' => 'Ernie Ball Slinky (3-Pack)','brand' => 'Ernie Ball','category' => 'accessories', 'price' => 1450,   'badge' => '',           'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/ernie_ball_slinky_electric_9_42_3pack.jpg',     'desc' => 'Hybrid Slinky 9-46 nickel wound strings. Three sets, the industry standard.'],
     ['id' => 14, 'name' => 'Fender Deluxe Gig Bag',     'brand' => 'Fender',    'category' => 'accessories', 'price' => 3500,   'badge' => '',           'availability' => 'online',    'featured' => false, 'image' => 'images/products/gigbag.jpg',      'desc' => '25 mm padding, dual shoulder straps and an accessory pocket. Fits most electrics.'],
 ];
+
+/* The shop starts from the seed; the DB switch below replaces it
+   whenever the guitars table has data. */
+$PRODUCTS = $SEED_PRODUCTS;
 
 /* ---------- NEW: read the guitars table ---------- */
 function load_products_from_db(): array {
