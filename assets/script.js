@@ -42,6 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
   safe("shop",        initShop);
   safe("modal",       initModal);
   safe("toast",       initToast);
+  safe("add-to-cart", initAddToCart);   /* NEW */
 });
 
 
@@ -147,7 +148,7 @@ function cardHTML(p) {
         <p class="price">${peso(p.price)}</p>
         <div class="card-actions">
           <button class="btn-view" type="button" data-view="${p.id}">VIEW</button>
-          <a class="btn-cart" href="cart.php?action=add&amp;id=${p.id}">ADD TO CART</a>
+          <a class="btn-cart" href="cart.php?action=add&amp;id=${p.id}" data-add-cart="${p.id}">ADD TO CART</a>  <!-- NEW: data-add-cart -->
         </div>
       </div>
     </article>`;
@@ -296,12 +297,10 @@ function initModal() {
     if (e.key === "Escape") closeModal();
   });
 
-  const addBtn = $("#qvAdd");
+  const addBtn = $("#qvAdd");                              /* NEW — AJAX instead of page reload */
   if (addBtn) addBtn.addEventListener("click", e => {
     e.preventDefault();
-    if (currentProduct) {
-      window.location.href = `cart.php?action=add&id=${currentProduct.id}`;
-    }
+    if (currentProduct) addToCart(currentProduct.id, addBtn);
   });
 
   function openModal(id) {
@@ -374,4 +373,45 @@ function initReveal() {
   }, { threshold: 0.08 });
 
   els.forEach(el => io.observe(el));
+}
+
+
+/* 
+   7. ADD TO CART — records into $_SESSION['cart'] via cart.php   [NEW SECTION]
+      One delegated listener covers: shop grid, homepage bestsellers, quick-view.
+      The href stays as a no-JS fallback (a normal click on it still records the item).
+*/
+function initAddToCart() {
+  document.addEventListener("click", e => {
+    const btn = e.target.closest("[data-add-cart]");
+    if (!btn) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey) return;   /* let users open in a new tab */
+    e.preventDefault();                                  /* stay on the page */
+    addToCart(Number(btn.dataset.addCart), btn);
+  });
+}
+
+async function addToCart(id, btn = null) {
+  if (btn) btn.classList.add("is-loading");
+  try {
+    const res  = await fetch(`cart.php?action=add&id=${id}&ajax=1`, {
+      headers: { "X-Requested-With": "fetch" }
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      $$("[data-cart-count]").forEach(el => {
+        el.textContent = data.count;
+        el.classList.toggle("is-empty", data.count === 0);
+      });
+      toast(data.message || "Added to your cart");
+    } else {
+      toast(data.message || "Could not add to cart");
+    }
+  } catch (err) {
+    /* fetch/JSON failed → fall back to normal navigation (still records it) */
+    window.location.href = `cart.php?action=add&id=${id}`;
+  } finally {
+    if (btn) btn.classList.remove("is-loading");
+  }
 }

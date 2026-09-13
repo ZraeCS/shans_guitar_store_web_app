@@ -2,13 +2,15 @@
 /* includes/header.php — shared <head> + header/nav for every page.
    Set $pageTitle and $activeNav BEFORE including this file. */
 if (!defined('SITE_NAME')) { require_once __DIR__ . '/config.php'; }
-$pageTitle   = $pageTitle   ?? SITE_NAME;
-$activeNav   = $activeNav   ?? '';
-$pageDesc    = $pageDesc    ?? 'Guitar specialist store — hand-picked acoustics, electrics and basses.';
-$user        = is_logged_in() ? current_user() : null;
-$cartTotal   = cart_count();
-$flashMsg    = take_flash();
-$base        = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+if (!isset($PRODUCTS))     { require_once __DIR__ . '/products.php'; }   /* NEW — so every page can feed script.js */
+
+ $pageTitle   = $pageTitle   ?? SITE_NAME;
+ $activeNav   = $activeNav   ?? '';
+ $pageDesc    = $pageDesc    ?? 'Guitar specialist store — hand-picked acoustics, electrics and basses.';
+ $user        = is_logged_in() ? current_user() : null;
+ $cartTotal   = cart_count();
+ $flashMsg    = take_flash();
+ $base        = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -58,7 +60,7 @@ $base        = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
         <circle cx="18" cy="20" r="1.6"></circle>
         <path d="M1.5 2h3.2l2.4 12.1a1.9 1.9 0 0 0 1.9 1.5h8.6a1.9 1.9 0 0 0 1.9-1.5L21.5 6H5.2"></path>
       </svg>
-      <span class="cart-count<?= $cartTotal === 0 ? ' is-empty' : '' ?>"><?= $cartTotal ?></span>
+      <span class="cart-count<?= $cartTotal === 0 ? ' is-empty' : '' ?>" data-cart-count><?= $cartTotal ?></span>  <!-- NEW: data-cart-count -->
     </a>
 
     <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false">
@@ -70,3 +72,8 @@ $base        = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 <?php if ($flashMsg): ?>
   <div class="flash flash-<?= e($flashMsg['type']) ?>" role="status"><?= e($flashMsg['msg']) ?></div>
 <?php endif; ?>
+
+<!-- NEW: product data for script.js (shop grid, bestsellers, quick-view) -->
+<script>
+window.SG_PRODUCTS = <?= json_encode($PRODUCTS, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+</script>

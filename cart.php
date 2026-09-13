@@ -5,19 +5,31 @@ require_once __DIR__ . '/includes/products.php';
 /* ---- handle add / remove / update actions ---- */
  $action = $_GET['action'] ?? '';
  $id     = (int)($_GET['id'] ?? 0);
+ $isAjax = isset($_GET['ajax']);                                    /* NEW */
+
+/* NEW — JSON reply for fetch() calls from script.js */
+function cart_json(bool $ok, string $msg): void {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok' => $ok, 'count' => cart_count(), 'message' => $msg]);
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action !== '' && $id) {
     if ($action === 'add') {
         $p = product_by_id($id);
         if ($p) {
-            cart_add($id);
+            cart_add($id);                                        /* ← this is the "recording" */
+            if ($isAjax) cart_json(true, $p['name'] . ' added to your cart.');
             flash('success', $p['name'] . ' added to your cart.');
+        } elseif ($isAjax) {
+            cart_json(false, 'Product not found.');
         }
     } elseif ($action === 'remove') {
         cart_remove($id);
+        if ($isAjax) cart_json(true, 'Item removed from your cart.');
         flash('info', 'Item removed from your cart.');
     }
-    redirect('cart.php');
+    redirect('cart.php');   /* non-AJAX fallback lands here with the item already recorded */
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -29,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('cart.php');
 }
 
-/* ---- build cart rows ---- */
+/* ---- build cart rows (reads whatever was recorded from the shop) ---- */
  $rows  = [];
  $total = 0;
 foreach (cart() as $pid => $qty) {
