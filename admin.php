@@ -12,8 +12,8 @@ require_once __DIR__ . '/includes/config.php';
    ============================================================ */
 
 define('LOW_STOCK_THRESHOLD', 3);
-define('UPLOAD_DIR',  __DIR__ . '/uploads/guitars/');
-define('UPLOAD_PATH', 'uploads/guitars/');
+define('UPLOAD_DIR',  __DIR__ . '/images/products/');
+define('UPLOAD_PATH', 'images/products/');
 
 /* ---------- ADMIN AUTH ---------- */
 function admin_logged_in(): bool { return !empty($_SESSION['admin_id']); }
@@ -57,17 +57,37 @@ function stock_label(int $stock): string {
     return $stock . ' in stock';
 }
 
-function handle_image_upload(?array $file): ?string {
-    if (empty($file) || $file['error'] === UPLOAD_ERR_NO_FILE) return null;
-    if ($file['error'] !== UPLOAD_ERR_OK) return null;
-    $allowed = ['jpg' => true, 'jpeg' => true, 'png' => true, 'webp' => true];
+/* Upload a product image. Returns [path, error]: exactly one is non-null.
+   Validates the PHP upload status, size, extension AND the real file content
+   (finfo MIME + getimagesize) so a renamed non-image cannot sneak in. */
+function handle_image_upload(?array $file): array {
+    if (empty($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return [null, null];   /* nothing attempted - not an error */
+    }
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        return [null, 'Upload failed (error code ' . $file['error'] . ') - try a smaller file.'];
+    }
+    if ($file['size'] > 4 * 1024 * 1024) {
+        return [null, 'Image is larger than 4 MB.'];
+    }
+    $allowed = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp'];
     $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-    if (!isset($allowed[$ext])) return null;
-    if ($file['size'] > 4 * 1024 * 1024) return null;
+    if (!isset($allowed[$ext])) {
+        return [null, 'Only JPG, PNG or WEBP images are allowed.'];
+    }
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+    if ($mime === false || !in_array($mime, $allowed, true)) {
+        return [null, 'That file is not a real image (detected type: ' . ($mime ?: 'unknown') . ').'];
+    }
+    if (@getimagesize($file['tmp_name']) === false) {
+        return [null, 'That file is not a readable image.'];
+    }
     if (!is_dir(UPLOAD_DIR)) @mkdir(UPLOAD_DIR, 0755, true);
-    $filename = 'gtr_' . bin2hex(random_bytes(6)) . '.' . $ext;
-    if (!move_uploaded_file($file['tmp_name'], UPLOAD_DIR . $filename)) return null;
-    return UPLOAD_PATH . $filename;
+    $filename = 'gtr_' . bin2hex(random_bytes(6)) . '.' . ($ext === 'jpeg' ? 'jpg' : $ext);
+    if (!move_uploaded_file($file['tmp_name'], UPLOAD_DIR . $filename)) {
+        return [null, 'Could not save the image - check folder permissions for ' . UPLOAD_PATH . '.'];
+    }
+    return [UPLOAD_PATH . $filename, null];
 }
 
 /* ---------- ORDER ITEMS PARSER ----------
@@ -190,8 +210,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('admin.php?tab=guitars');
         }
 
-        $uploaded = handle_image_upload($_FILES['image'] ?? null);
-        $image = $uploaded !== null ? $uploaded : $imageUrl;
+        [$upPath, $upError] = handle_image_upload($_FILES['image'] ?? null);
+        $notice = '';
+        if ($upError !== null) {
+            $notice = 'Image not saved: ' . $upError;
+            $image = $imageUrl;
+        } elseif (is_string($upPath)) {
+            $image = $upPath;
+        } else {
+            $image = $imageUrl;
+            if ($image !== '' && !preg_match('#^https?://#i', $image) && !is_file(__DIR__ . '/' . $image)) {
+                $notice = 'Saved, but the image path does not exist on the server (' . $image . ') - the shop will show a placeholder.';
+            }
+        }
 
         if ($id > 0) {
             if ($image === '') {
@@ -201,11 +232,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $stmt = $pdo->prepare('UPDATE guitars SET name=?, brand=?, category=?, price=?, stock=?, image=?, description=?, is_bestseller=? WHERE id=?');
             $stmt->execute([$name, $brand, $category, $price, $stock, $image, $description, $bestseller, $id]);
-            flash('success', '"' . $name . '" was updated.');
+            flash($notice !== '' ? 'error' : 'success', $notice !== '' ? $notice : '"' . $name . '" was updated.');
         } else {
             $stmt = $pdo->prepare('INSERT INTO guitars (name, brand, category, price, stock, image, description, is_bestseller) VALUES (?,?,?,?,?,?,?,?)');
             $stmt->execute([$name, $brand, $category, $price, $stock, $image, $description, $bestseller]);
-            flash('success', '"' . $name . '" was added.');
+            flash($notice !== '' ? 'error' : 'success', $notice !== '' ? $notice : '"' . $name . '" was added.');
         }
         redirect('admin.php?tab=guitars');
     }
@@ -674,7 +705,7 @@ if ($tab === 'orders') {
                 <input type="file" name="image" accept=".jpg,.jpeg,.png,.webp">
               </label>
               <label>...or image URL
-                <input type="text" name="image_url" placeholder="images/guitars/example.jpg" value="<?= e($imgVal) ?>">
+                <input type="text" name="image_url" placeholder="images/products/your-photo.jpg" value="<?= e($imgVal) ?>">
               </label>
 
               <label>Description
