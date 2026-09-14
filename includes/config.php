@@ -16,6 +16,10 @@ define('SITE_CURRENCY', '₱');
 /* ----------  SESSION ---------- */
 if (session_status() === PHP_SESSION_NONE) {
     session_name('sg_session');
+    session_set_cookie_params([
+        'httponly' => true,   // JavaScript can't steal the session cookie
+        'samesite' => 'Lax',  // blocks cross-site requests from other websites
+    ]);
     session_start();
 }
 

@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (strlen($name) < 2)                    $errors[] = 'Please enter your full name.';
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Please enter a valid email address.';
-    if (strlen($pass) < 6)                    $errors[] = 'Password must be at least 6 characters.';
+    if (strlen($pass) < 8)                    $errors[] = 'Password must be at least 8 characters.';
     if ($pass !== $pass2)                        $errors[] = 'Passwords do not match.';
 
     if (!$errors) {
@@ -77,7 +77,7 @@ require __DIR__ . '/includes/header.php';
       </label>
       <label>
         Password
-        <input type="password" name="password" placeholder="At least 6 characters" required>
+        <input type="password" name="password" placeholder="At least 8 characters" required>
       </label>
       <label>
         Confirm password

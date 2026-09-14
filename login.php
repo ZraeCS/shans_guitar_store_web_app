@@ -32,15 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_email'] = $user['email'];
                 flash('success', 'Welcome back, ' . explode(' ', $user['name'])[0] . '!');
 
-                /* if a cart was built before logging in, merge it */
-                if (!empty($_SESSION['cart_before_login'])) {
-                    foreach ($_SESSION['cart_before_login'] as $id => $qty) {
-                        cart_add((int)$id, (int)$qty);
-                    }
-                    unset($_SESSION['cart_before_login']);
-                }
-
+                /* PATCH 4 — only allow redirects to pages inside this site.
+                   Blocks login.php?next=https://evil.com (open redirect / phishing). */
                 $next = $_GET['next'] ?? 'account.php';
+                if (strpos($next, '/') !== 0 || strpos($next, '//') === 0) {
+                    $next = 'account.php';
+                }
                 redirect($next);
             }
         }
