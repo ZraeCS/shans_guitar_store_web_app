@@ -37,7 +37,7 @@ $SEED_PRODUCTS = [
     ['id' => 7,  'name' => 'Martin D-28',               'brand' => 'Martin',    'category' => 'acoustic',    'price' => 178000, 'badge' => '',           'availability' => 'pre-order', 'featured' => true,  'image' => 'images/products/Martin_D28.jpg',         'desc' => 'The benchmark dreadnought since 1931. East Indian rosewood back and sides, Sitka spruce top.'],
     ['id' => 8,  'name' => 'Taylor GS Mini Mahogany',   'brand' => 'Taylor',    'category' => 'acoustic',    'price' => 39500,  'badge' => 'Popular',    'availability' => 'online',    'featured' => true,  'image' => 'images/products/Taylor_GS_Mini_Mahogany_Acoustic.webp',     'desc' => 'Compact scaled-down Grand Symphony with surprising volume. Travel-ready with a gig bag.'],
     ['id' => 9,  'name' => 'Fender Player Jazz Bass',   'brand' => 'Fender',    'category' => 'bass',        'price' => 48000,  'badge' => '',           'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/Fender_Player_Jazz_Bazz.jpg',   'desc' => 'Two Player Series single-coils and a slim neck — the go-to bass for every genre.'],
-    ['id' => 10, 'name' => 'Yamaha TRBX304',            'brand' => 'Yamaha',    'category' => 'bass',        'price' => 22500,  'badge' => '',           'availability' => 'in-store',  'featured' => false, 'image' => 'images/products/trbx304.jpg',     'desc' => 'Mahogany body, active 2-band EQ and a 5-way Performance EQ switch.'],
+    ['id' => 10, 'name' => 'Yamaha TRBX304',            'brand' => 'Yamaha',    'category' => 'bass',        'price' => 22500,  'badge' => '',           'availability' => 'in-store',  'featured' => false, 'image' => 'images/products/Yamaha_TRBX304_FactoryBlue.jpg',     'desc' => 'Mahogany body, active 2-band EQ and a 5-way Performance EQ switch.'],
     ['id' => 11, 'name' => 'Cordoba C5 Classical',      'brand' => 'Cordoba',   'category' => 'classical',   'price' => 18500,  'badge' => '',           'availability' => 'online',    'featured' => false, 'image' => 'images/products/c5.jpg',          'desc' => 'Solid cedar top nylon-string with a wide, comfortable neck for fingerstyle players.'],
     ['id' => 12, 'name' => 'Gretsch G2622 Streamliner', 'brand' => 'Gretsch',   'category' => 'electric',    'price' => 42500,  'badge' => 'Staff Pick', 'availability' => 'in-store',  'featured' => false, 'image' => 'images/products/g2622.jpg',       'desc' => 'Centre-block semi-hollow with Broad\'Tron pickups — jangle, twang and feedback control.'],
     ['id' => 13, 'name' => 'Ernie Ball Slinky (3-Pack)','brand' => 'Ernie Ball','category' => 'accessories', 'price' => 1450,   'badge' => '',           'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/ernie_ball_slinky_electric_9_42_3pack.jpg',     'desc' => 'Hybrid Slinky 9-46 nickel wound strings. Three sets, the industry standard.'],
@@ -76,6 +76,7 @@ function load_products_from_db(): array {
             'brand'        => (string)$g['brand'],
             'category'     => $cat,
             'price'        => (float)$g['price'],
+            'stock'        => $stock,
             /* the admin's "Mark as bestseller" checkbox now controls the
                homepage carousel and the card badge */
             'badge'        => !empty($g['is_bestseller']) ? 'Bestseller' : '',
