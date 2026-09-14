@@ -1,6 +1,5 @@
 <?php
 require_once __DIR__ . '/includes/config.php';
-require_once __DIR__ . '/includes/products.php';
 
 require_login();
  $user = current_user();
