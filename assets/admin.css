@@ -184,7 +184,6 @@ body.admin-body {
   border-bottom: 1px solid rgba(253,243,224,.12);
   margin-bottom: 18px;
 }
-.admin-brand .brand-guitar { width: 20px; height: 20px; flex-shrink: 0; color: var(--gold); }
 .admin-brand .brand-text { white-space: nowrap; }
 .admin-brand small { margin-left: auto; font-family: var(--font-body); font-size: 0.6rem; letter-spacing: 0.14em; color: var(--gold); text-transform: uppercase; font-weight: 700; }
 
