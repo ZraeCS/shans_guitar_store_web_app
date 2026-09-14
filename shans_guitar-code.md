@@ -384,7 +384,7 @@ require_once __DIR__ . '/includes/config.php';
    Reuses config.php's db(), e(), peso(), csrf_field(), csrf_check(),
    flash(), take_flash(), redirect() helpers.
    Adapted to match the actual database schema:
-   orders (user_id, items, total, fulfillment_method, fullname,
+   orders (user_id, items, total, fulfillment, fullname,
    phone, address, city, notes, status) + users + guitars + admins.
    ============================================================ */
 
@@ -1131,7 +1131,7 @@ if ($tab === 'orders') {
                 </table>
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:14px; gap:20px; flex-wrap:wrap;">
                   <div style="font-size:.8rem; opacity:.65; max-width:420px;">
-                    <?= ($o['fulfillment_method'] ?? '') === 'delivery'
+                    <?= ($o['fulfillment'] ?? '') === 'delivery'
                         ? 'Delivery to: ' . e(trim(($o['address'] ?? '') . ', ' . ($o['city'] ?? ''), ' ,'))
                         : 'In-store pickup' ?>
                     <?= !empty($o['notes']) ? '<br>Notes: ' . e($o['notes']) : '' ?>
@@ -1202,6 +1202,9 @@ if ($tab === 'orders') {
 </script>
 </body>
 </html>
+
+
+
 ```
 
 ## brands.php
