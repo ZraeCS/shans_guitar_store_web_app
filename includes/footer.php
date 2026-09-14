@@ -40,13 +40,13 @@ if (!defined('SITE_NAME')) { require_once __DIR__ . '/config.php'; }
     <p>New arrivals, restocks and store news - follow us on social media.</p>
     <!-- TODO: replace the page URLs below with your real handles -->
     <div class="social-links">
-      <a href="https://facebook.com/shansguitar" target="_blank" rel="noopener" aria-label="Facebook">
+      <a href="https://facebook.com" target="_blank" rel="noopener" aria-label="Facebook">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.9h2.54V9.85c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.23.2 2.23.2v2.46h-1.26c-1.24 0-1.63.77-1.63 2.52v2.02h2.78l-.44 2.9h-2.34V22c4.78-.76 8.44-4.92 8.44-9.94Z"/></svg>
       </a>
-      <a href="https://instagram.com/shansguitar" target="_blank" rel="noopener" aria-label="Instagram">
+      <a href="https://instagram.com" target="_blank" rel="noopener" aria-label="Instagram">
         <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.8" y="2.8" width="18.4" height="18.4" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="1.15" fill="currentColor" stroke="none"/></svg>
       </a>
-      <a href="https://tiktok.com/@shansguitar" target="_blank" rel="noopener" aria-label="TikTok">
+      <a href="https://tiktok.com" target="_blank" rel="noopener" aria-label="TikTok">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 1 1-2.59-2.59c.27 0 .53.04.78.12V9.77a5.76 5.76 0 0 0-.78-.05 5.66 5.66 0 1 0 5.66 5.66V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3a4.28 4.28 0 0 1-3.31-1.48Z"/></svg>
       </a>
     </div>
