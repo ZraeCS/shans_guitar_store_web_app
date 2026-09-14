@@ -18,9 +18,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action !== '' && $id) {
     if ($action === 'add') {
         $p = product_by_id($id);
         if ($p) {
-            cart_add($id);                                        /* ← this is the "recording" */
-            if ($isAjax) cart_json(true, $p['name'] . ' added to your cart.');
-            flash('success', $p['name'] . ' added to your cart.');
+            /* stock cap: never allow more units in the cart than exist */
+            $stock = (int)($p['stock'] ?? 0);
+            $have  = (int)(cart()[$id] ?? 0);
+            if ($stock <= 0) {
+                if ($isAjax) cart_json(false, $p['name'] . ' is out of stock.');
+                flash('error', $p['name'] . ' is out of stock.');
+            } elseif ($have >= $stock) {
+                if ($isAjax) cart_json(false, 'Only ' . $stock . ' in stock - already all in your cart.');
+                flash('error', 'Only ' . $stock . ' in stock - already all in your cart.');
+            } else {
+                cart_add($id);
+                if ($have + 1 > $stock) {
+                    cart_set($id, $stock);
+                    if ($isAjax) cart_json(true, 'Only ' . $stock . ' in stock - quantity capped.');
+                    flash('error', 'Only ' . $stock . ' in stock - quantity capped.');
+                } else {
+                    if ($isAjax) cart_json(true, $p['name'] . ' added to your cart.');
+                    flash('success', $p['name'] . ' added to your cart.');
+                }
+            }
         } elseif ($isAjax) {
             cart_json(false, 'Product not found.');
         }
@@ -34,10 +51,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action !== '' && $id) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
+    $capped = [];
     foreach (($_POST['qty'] ?? []) as $pid => $qty) {
-        cart_set((int)$pid, max(0, (int)$qty));
+        $pid = (int)$pid; $qty = max(0, (int)$qty);
+        $p = product_by_id($pid);
+        $stock = $p ? (int)($p['stock'] ?? 0) : 0;
+        if ($p && $stock > 0 && $qty > $stock) {
+            $qty = $stock;
+            $capped[] = $p['name'] . ' (only ' . $stock . ' in stock)';
+        }
+        cart_set($pid, $qty);
     }
-    flash('success', 'Cart updated.');
+    flash($capped ? 'error' : 'success', $capped ? 'Quantity capped: ' . implode(', ', $capped) . '.' : 'Cart updated.');
     redirect('cart.php');
 }
 
@@ -102,7 +127,7 @@ require __DIR__ . '/includes/header.php';
                 <div class="cart-qty">
                   <label for="qty-<?= (int)$p['id'] ?>">Qty</label>
                   <input type="number" name="qty[<?= (int)$p['id'] ?>]" id="qty-<?= (int)$p['id'] ?>"
-                         value="<?= (int)$r['qty'] ?>" min="0" max="99">
+                         value="<?= (int)$r['qty'] ?>" min="0" max="<?= (int)$p['stock'] ?>">
                 </div>
                 <div class="cart-line"><?= peso($r['line']) ?></div>
                 <a class="cart-remove" href="cart.php?action=remove&amp;id=<?= (int)$p['id'] ?>" aria-label="Remove <?= e($p['name']) ?>">&times;</a>
