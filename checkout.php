@@ -24,6 +24,8 @@ $user = current_user();
 
 $errors = [];
 $fullname = $user['name'] ?? '';
+$phone = $address = $city = $notes = '';
+$fulfillment = 'delivery';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
@@ -95,33 +97,33 @@ require __DIR__ . '/includes/header.php';
             <input type="text" name="fullname" value="<?= e($fullname) ?>" required>
           </label>
           <label>Contact number
-            <input type="tel" name="phone" placeholder="+63 9XX XXX XXXX" required>
+            <input type="tel" name="phone" placeholder="+63 9XX XXX XXXX" value="<?= e($phone) ?>" required>
           </label>
         </div>
 
         <h3>2 · Fulfillment</h3>
         <div class="fulfill-row">
           <label class="fulfill-option">
-            <input type="radio" name="fulfillment" value="delivery" checked>
+            <input type="radio" name="fulfillment" value="delivery" <?= $fulfillment === 'delivery' ? 'checked' : '' ?>>
             <span><strong>Delivery</strong><small>We ship to your address</small></span>
           </label>
           <label class="fulfill-option">
-            <input type="radio" name="fulfillment" value="pickup">
+            <input type="radio" name="fulfillment" value="pickup" <?= $fulfillment === 'pickup' ? 'checked' : '' ?>>
             <span><strong>Store pickup</strong><small>Dumaguete City, Negros Oriental</small></span>
           </label>
         </div>
 
         <div class="form-grid">
           <label>Delivery / pickup address
-            <input type="text" name="address" placeholder="House no., street, barangay" required>
+            <input type="text" name="address" placeholder="House no., street, barangay" value="<?= e($address) ?>" required>
           </label>
           <label>City / province
-            <input type="text" name="city" placeholder="e.g. Dumaguete City, Negros Oriental" required>
+            <input type="text" name="city" placeholder="e.g. Dumaguete City, Negros Oriental" value="<?= e($city) ?>" required>
           </label>
         </div>
 
         <label>Order notes (optional)
-          <textarea name="notes" rows="3" placeholder="Anything we should know?"></textarea>
+          <textarea name="notes" rows="3" placeholder="Anything we should know?"><?= e($notes) ?></textarea>
         </label>
 
         <h3>3 · Payment</h3>
