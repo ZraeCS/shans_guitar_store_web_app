@@ -201,7 +201,7 @@ require __DIR__ . '/includes/header.php';
         <?php if (!$pdo): ?>
           <div class="empty-state">
             <h3>Database not connected</h3>
-            <p>Check your MySQL settings in <code>includes/config.php</code> and run <code>install.php</code> once.</p>
+            <p>Check your MySQL settings in <code>includes/config.php</code> and that MySQL is running in the XAMPP Control Panel.</p>
           </div>
 
         <?php elseif (!$orders): ?>

@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$errors) {
         $pdo = db();
         if (!$pdo) {
-            $errors[] = 'Could not connect to the database. Check your MySQL settings in includes/config.php, then open install.php once.';
+            $errors[] = 'Could not connect to the database. Check your MySQL settings in includes/config.php and that MySQL is running in XAMPP.';
         } else {
             $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
             $stmt->execute([$email]);

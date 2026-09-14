@@ -40,7 +40,7 @@ function db_or_die(): PDO {
     $pdo = db();
     if (!$pdo) {
         http_response_code(500);
-        exit('Database connection failed. Check includes/config.php and that the admin_schema.sql tables exist.');
+        exit('Database connection failed. Check your MySQL settings in includes/config.php and that MySQL is running in XAMPP.');
     }
     return $pdo;
 }

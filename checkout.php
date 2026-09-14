@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$errors) {
         $pdo = db();
         if (!$pdo) {
-            $errors[] = 'Could not connect to the database — check includes/config.php and run install.php.';
+            $errors[] = 'Could not connect to the database — check your MySQL settings in includes/config.php and that MySQL is running in XAMPP.';
         } else {
             $items = array_map(fn($r) => [
                 'id'    => (int)$r['p']['id'],
