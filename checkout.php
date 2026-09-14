@@ -47,25 +47,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$pdo) {
             $errors[] = 'Could not connect to the database — check your MySQL settings in includes/config.php and that MySQL is running in XAMPP.';
         } else {
-            $items = array_map(fn($r) => [
-                'id'    => (int)$r['p']['id'],
-                'name'  => $r['p']['name'],
-                'price' => (int)$r['p']['price'],
-                'qty'   => (int)$r['qty'],
-            ], $rows);
-
-            $stmt = $pdo->prepare(
-                'INSERT INTO orders (user_id, items, total, fulfillment, fullname, phone, address, city, notes, status, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
-            );
-            $stmt->execute([
-                $user['id'], json_encode($items), (int)$total, $fulfillment,
-                $fullname, $phone, $address, $city, $notes, 'pending'
-            ]);
-
-            cart_clear();
-            flash('success', 'Thank you! Your order has been placed — we\'ll contact you shortly to confirm.');
-            redirect('account.php');
+            try {
+                /* fresh stock re-check inside a transaction - two buyers can
+                   never oversell the last unit */
+                $pdo->beginTransaction();
+                foreach ($rows as $r) {
+                    $chk = $pdo->prepare('SELECT stock FROM guitars WHERE id = ?');
+                    $chk->execute([(int)$r['p']['id']]);
+                    $have = $chk->fetchColumn();
+                    if ($have === false || (int)$have < (int)$r['qty']) {
+                        throw new RuntimeException($r['p']['name'] . ' - only ' . (int)$have . ' left. Please update your cart.');
+                    }
+                }
+                $items = array_map(fn($r) => [
+                    'id'    => (int)$r['p']['id'],
+                    'name'  => $r['p']['name'],
+                    'price' => (int)$r['p']['price'],
+                    'qty'   => (int)$r['qty'],
+                ], $rows);
+                $stmt = $pdo->prepare(
+                    'INSERT INTO orders (user_id, items, total, fulfillment, fullname, phone, address, city, notes, status, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
+                );
+                $stmt->execute([
+                    $user['id'], json_encode($items), (float)$total, $fulfillment,
+                    $fullname, $phone, $address, $city, $notes, 'pending'
+                ]);
+                foreach ($rows as $r) {
+                    $dec = $pdo->prepare('UPDATE guitars SET stock = stock - ? WHERE id = ? AND stock >= ?');
+                    $dec->execute([(int)$r['qty'], (int)$r['p']['id'], (int)$r['qty']]);
+                    if ($dec->rowCount() !== 1) {
+                        throw new RuntimeException('Stock changed while placing your order - nothing was saved. Please review your cart and try again.');
+                    }
+                }
+                $pdo->commit();
+                cart_clear();
+                flash('success', 'Thank you! Your order has been placed - we\'ll contact you shortly to confirm.');
+                redirect('account.php');
+            } catch (RuntimeException $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                $errors[] = $e->getMessage();
+            } catch (PDOException $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                $errors[] = 'Something went wrong saving your order - please try again.';
+            }
         }
     }
 }
