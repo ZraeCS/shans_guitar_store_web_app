@@ -1428,7 +1428,7 @@ h2 {
 .edit-details[open] summary { background: var(--brown); color: var(--cream); }
 
 .profile-edit-form { display: none; padding: 24px; }
-.edit-details[open] + .info-grid ~ .profile-edit-form,
+.profile-card:has(.edit-details[open]) .profile-edit-form,
 .profile-edit-form.force-open { display: block; }
 
 /* responsive */

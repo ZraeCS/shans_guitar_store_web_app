@@ -10,6 +10,10 @@ const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
 
 const peso = n => "₱" + Number(n).toLocaleString("en-PH");
 
+/* escape product data before it goes into innerHTML (XSS protection) */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
 const AVAIL_LABEL = {
   "in-store":  "In store now",
   "online":    "Online only",
@@ -43,6 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
   safe("modal",       initModal);
   safe("toast",       initToast);
   safe("add-to-cart", initAddToCart);   /* NEW */
+  safe("edit-profile-toggle", initEditProfileToggle);   /* Patch 7: account.php EDIT PROFILE */
 });
 
 
@@ -135,20 +140,20 @@ function initBestsellers() {
    3. CARD TEMPLATE
     */
 function cardHTML(p) {
-  const badge = p.badge ? `<span class="badge">${p.badge}</span>` : "";
+  const badge = p.badge ? `<span class="badge">${esc(p.badge)}</span>` : "";
   return `
     <article class="product-card" data-id="${p.id}">
       <div class="product-media">
         ${badge}
-        <img src="${p.image}" alt="${p.name}" loading="lazy">
+        <img src="${esc(p.image)}" alt="${esc(p.name)}" loading="lazy">
       </div>
       <div class="product-info">
-        <p class="product-type">${p.category}</p>
-        <h3>${p.name}</h3>
+        <p class="product-type">${esc(p.category)}</p>
+        <h3>${esc(p.name)}</h3>
         <p class="price">${peso(p.price)}</p>
         <div class="card-actions">
           <button class="btn-view" type="button" data-view="${p.id}">VIEW</button>
-          <a class="btn-cart" href="cart.php?action=add&amp;id=${p.id}" data-add-cart="${p.id}">ADD TO CART</a>  <!-- NEW: data-add-cart -->
+          <a class="btn-cart" href="cart.php?action=add&amp;id=${p.id}" data-add-cart="${p.id}">ADD TO CART</a>
         </div>
       </div>
     </article>`;
@@ -317,8 +322,8 @@ function initModal() {
     $("#qvPrice").textContent = peso(p.price);
     $("#qvDesc").textContent  = p.desc;
     $("#qvMeta").innerHTML = `
-      <li><span>Brand</span><strong>${p.brand}</strong></li>
-      <li><span>Category</span><strong>${p.category}</strong></li>
+      <li><span>Brand</span><strong>${esc(p.brand)}</strong></li>
+      <li><span>Category</span><strong>${esc(p.category)}</strong></li>
       <li><span>Availability</span><strong>${AVAIL_LABEL[p.availability] || "—"}</strong></li>
       <li><span>Item code</span><strong>SG-${String(p.id).padStart(4, "0")}</strong></li>`;
 
@@ -414,4 +419,21 @@ async function addToCart(id, btn = null) {
   } finally {
     if (btn) btn.classList.remove("is-loading");
   }
+}
+
+/* 
+   8. EDIT PROFILE - account.php   [Patch 7]
+      The CSS sibling selector (.edit-details[open] + .info-grid ~ .profile-edit-form)
+      can never match: .edit-details lives inside .profile-card-head while the form
+      is a later child of .profile-card. Toggle the .force-open class the stylesheet
+      already supports (assets/style.css: .profile-edit-form.force-open).
+*/
+function initEditProfileToggle() {
+  $$(".edit-details").forEach(d => {
+    d.addEventListener("toggle", () => {
+      const card = d.closest(".profile-card");
+      const form = card ? card.querySelector(".profile-edit-form") : null;
+      if (form) form.classList.toggle("force-open", d.open);
+    });
+  });
 }
