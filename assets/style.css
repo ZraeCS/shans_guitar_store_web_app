@@ -1476,3 +1476,6 @@ h2 {
 .order-cancelled-note { margin: 0 0 10px; font-size: 0.8rem; font-weight: 700; color: #a93226; }
 .order-updated { margin: 0; font-size: 0.75rem; opacity: 0.55; }
 .order-card.order-cancelled { opacity: 0.75; }
+
+/* ---------- PAYMENT METHOD PICKER (Batch P) ---------- */
+.payment-note { margin: 12px 0 0; font-size: 0.8rem; opacity: 0.6; }

@@ -812,6 +812,7 @@ if ($tab === 'orders') {
                     <?= ($o['fulfillment'] ?? '') === 'delivery'
                         ? 'Delivery to: ' . e(trim(($o['address'] ?? '') . ', ' . ($o['city'] ?? ''), ' ,'))
                         : 'In-store pickup' ?>
+                    · <strong>Payment:</strong> <?= e(($o['payment_method'] ?? 'cod') === 'pickup_pay' ? 'Pay on Pickup' : 'Cash on Delivery') ?>
                     <?= !empty($o['notes']) ? '<br>Notes: ' . e($o['notes']) : '' ?>
                   </div>
                   <div style="display:flex; flex-direction:column; align-items:flex-end; gap:10px;">

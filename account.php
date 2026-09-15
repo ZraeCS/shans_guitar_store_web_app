@@ -299,7 +299,8 @@ require __DIR__ . '/includes/header.php';
                     <?php endforeach; ?>
                   </ul>
                   <div class="order-total">Total: <strong><?= peso($o['total']) ?></strong></div>
-                  <p class="order-detail"><strong>Fulfillment:</strong> <?= e($o['fulfillment']) ?> ·
+                  <p class="order-detail"><strong>Fulfillment:</strong> <?= e(ucfirst($o['fulfillment'])) ?> ·
+                     <strong>Payment:</strong> <?= e(($o['payment_method'] ?? 'cod') === 'pickup_pay' ? 'Pay on Pickup' : 'Cash on Delivery') ?> ·
                      <strong>Address:</strong> <?= e($o['address']) ?>, <?= e($o['city']) ?></p>
                 </div>
               </article>

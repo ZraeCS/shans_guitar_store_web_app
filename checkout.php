@@ -27,6 +27,7 @@ $errors = [];
 $fullname = $user['name'] ?? '';
 $phone = $address = $city = $notes = '';
 $fulfillment = 'delivery';
+$payment = 'cod';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
@@ -35,6 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $address     = trim($_POST['address'] ?? '');
     $city        = trim($_POST['city'] ?? '');
     $fulfillment = $_POST['fulfillment'] ?? 'delivery';
+    /* payment method: strict server-side whitelist - the browser only
+       suggests; anything unexpected (tampered/missing/array) falls back */
+    $payment = in_array($_POST['payment_method'] ?? '', ['cod', 'pickup_pay'], true)
+             ? $_POST['payment_method'] : 'cod';
     $notes       = trim($_POST['notes'] ?? '');
 
     if ($fullname === '')  $errors[] = 'Please enter your full name.';
@@ -68,11 +73,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'qty'   => (int)$r['qty'],
                 ], $rows);
                 $stmt = $pdo->prepare(
-                    'INSERT INTO orders (user_id, items, total, fulfillment, fullname, phone, address, city, notes, status, created_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
+                    'INSERT INTO orders (user_id, items, total, fulfillment, payment_method, fullname, phone, address, city, notes, status, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
                 );
                 $stmt->execute([
-                    $user['id'], json_encode($items), (float)$total, $fulfillment,
+                    $user['id'], json_encode($items), (float)$total, $fulfillment, $payment,
                     $fullname, $phone, $address, $city, $notes, 'pending'
                 ]);
                 foreach ($rows as $r) {
@@ -161,10 +166,17 @@ require __DIR__ . '/includes/header.php';
         </label>
 
         <h3>3 · Payment</h3>
-        <div class="payment-box">
-          <strong>Cash on delivery / payment on pickup</strong>
-          <p>No payment is taken online. We'll confirm your order and payment details by phone.</p>
+        <div class="fulfill-row">
+          <label class="fulfill-option">
+            <input type="radio" name="payment_method" value="cod" <?= $payment === 'cod' ? 'checked' : '' ?>>
+            <span><strong>Cash on Delivery</strong><small>Pay the courier in cash when your order arrives</small></span>
+          </label>
+          <label class="fulfill-option">
+            <input type="radio" name="payment_method" value="pickup_pay" <?= $payment === 'pickup_pay' ? 'checked' : '' ?>>
+            <span><strong>Pay on Pickup</strong><small>Pay cash at the counter when you collect</small></span>
+          </label>
         </div>
+        <p class="payment-note">No online payment yet — GCash is coming soon. We'll confirm your order and payment by phone.</p>
       </div>
 
       <aside class="cart-summary checkout-summary">
@@ -182,6 +194,17 @@ require __DIR__ . '/includes/header.php';
     </div>
   </form>
 </section>
+
+<script>
+  /* convenience only — the server re-validates the payment method anyway */
+  document.querySelectorAll('input[name="fulfillment"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      var suggest = document.querySelector(
+        'input[name="payment_method"][value="' + (r.value === 'pickup' ? 'pickup_pay' : 'cod') + '"]');
+      if (suggest) suggest.checked = true;
+    });
+  });
+</script>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>
 
