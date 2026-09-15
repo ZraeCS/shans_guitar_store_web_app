@@ -1,3 +1,4 @@
+
 <?php
 require_once __DIR__ . '/includes/config.php';
 
@@ -61,7 +62,7 @@ require __DIR__ . '/includes/header.php';
       </ul>
     <?php endif; ?>
 
-    <form method="post" action="register.php" class="auth-form" novalidate>
+    <form method="post" action="register.php" class="auth-form">
       <?= csrf_field() ?>
       <label>
         Full name
@@ -91,3 +92,5 @@ require __DIR__ . '/includes/header.php';
 </section>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>
+
+

@@ -1,3 +1,4 @@
+
 <?php
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/products.php';
@@ -47,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$pdo) {
             $errors[] = 'Could not connect to the database — check your MySQL settings in includes/config.php and that MySQL is running in XAMPP.';
         } else {
+            $placed = false;
             try {
                 /* fresh stock re-check inside a transaction - two buyers can
                    never oversell the last unit */
@@ -62,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $items = array_map(fn($r) => [
                     'id'    => (int)$r['p']['id'],
                     'name'  => $r['p']['name'],
-                    'price' => (int)$r['p']['price'],
+                    'price' => (float)$r['p']['price'],
                     'qty'   => (int)$r['qty'],
                 ], $rows);
                 $stmt = $pdo->prepare(
@@ -81,15 +83,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 $pdo->commit();
-                cart_clear();
-                flash('success', 'Thank you! Your order has been placed - we\'ll contact you shortly to confirm.');
-                redirect('account.php');
+                $placed = true;
+            } catch (PDOException $e) {
+                /* must come FIRST: PDOException extends RuntimeException, so a
+                   RuntimeException catch above would swallow it and leak the raw SQL */
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                $errors[] = 'Something went wrong saving your order - please try again.';
             } catch (RuntimeException $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 $errors[] = $e->getMessage();
-            } catch (PDOException $e) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
-                $errors[] = 'Something went wrong saving your order - please try again.';
+            }
+
+            /* success path OUTSIDE the try/catch so the catches can never swallow it */
+            if ($placed) {
+                cart_clear();
+                flash('success', 'Thank you! Your order has been placed - we\'ll contact you shortly to confirm.');
+                redirect('account.php');
             }
         }
     }
@@ -112,7 +121,7 @@ require __DIR__ . '/includes/header.php';
     </ul>
   <?php endif; ?>
 
-  <form method="post" action="checkout.php" class="checkout-form" novalidate>
+  <form method="post" action="checkout.php" class="checkout-form">
     <?= csrf_field() ?>
     <div class="checkout-layout">
       <div class="checkout-main">
@@ -175,3 +184,5 @@ require __DIR__ . '/includes/header.php';
 </section>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>
+
+

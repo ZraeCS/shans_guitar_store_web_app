@@ -120,7 +120,6 @@ require __DIR__ . '/includes/header.php';
 ```php
 <?php
 require_once __DIR__ . '/includes/config.php';
-require_once __DIR__ . '/includes/products.php';
 
 require_login();
  $user = current_user();
@@ -321,7 +320,7 @@ require __DIR__ . '/includes/header.php';
         <?php if (!$pdo): ?>
           <div class="empty-state">
             <h3>Database not connected</h3>
-            <p>Check your MySQL settings in <code>includes/config.php</code> and run <code>install.php</code> once.</p>
+            <p>Check your MySQL settings in <code>includes/config.php</code> and that MySQL is running in the XAMPP Control Panel.</p>
           </div>
 
         <?php elseif (!$orders): ?>
@@ -370,6 +369,7 @@ require __DIR__ . '/includes/header.php';
 </section>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>
+
 ```
 
 ## admin.php
@@ -389,8 +389,8 @@ require_once __DIR__ . '/includes/config.php';
    ============================================================ */
 
 define('LOW_STOCK_THRESHOLD', 3);
-define('UPLOAD_DIR',  __DIR__ . '/uploads/guitars/');
-define('UPLOAD_PATH', 'uploads/guitars/');
+define('UPLOAD_DIR',  __DIR__ . '/images/products/');
+define('UPLOAD_PATH', 'images/products/');
 
 /* ---------- ADMIN AUTH ---------- */
 function admin_logged_in(): bool { return !empty($_SESSION['admin_id']); }
@@ -417,7 +417,7 @@ function db_or_die(): PDO {
     $pdo = db();
     if (!$pdo) {
         http_response_code(500);
-        exit('Database connection failed. Check includes/config.php and that the admin_schema.sql tables exist.');
+        exit('Database connection failed. Check your MySQL settings in includes/config.php and that MySQL is running in XAMPP.');
     }
     return $pdo;
 }
@@ -434,17 +434,37 @@ function stock_label(int $stock): string {
     return $stock . ' in stock';
 }
 
-function handle_image_upload(?array $file): ?string {
-    if (empty($file) || $file['error'] === UPLOAD_ERR_NO_FILE) return null;
-    if ($file['error'] !== UPLOAD_ERR_OK) return null;
-    $allowed = ['jpg' => true, 'jpeg' => true, 'png' => true, 'webp' => true];
+/* Upload a product image. Returns [path, error]: exactly one is non-null.
+   Validates the PHP upload status, size, extension AND the real file content
+   (finfo MIME + getimagesize) so a renamed non-image cannot sneak in. */
+function handle_image_upload(?array $file): array {
+    if (empty($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return [null, null];   /* nothing attempted - not an error */
+    }
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        return [null, 'Upload failed (error code ' . $file['error'] . ') - try a smaller file.'];
+    }
+    if ($file['size'] > 4 * 1024 * 1024) {
+        return [null, 'Image is larger than 4 MB.'];
+    }
+    $allowed = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp'];
     $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-    if (!isset($allowed[$ext])) return null;
-    if ($file['size'] > 4 * 1024 * 1024) return null;
+    if (!isset($allowed[$ext])) {
+        return [null, 'Only JPG, PNG or WEBP images are allowed.'];
+    }
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+    if ($mime === false || !in_array($mime, $allowed, true)) {
+        return [null, 'That file is not a real image (detected type: ' . ($mime ?: 'unknown') . ').'];
+    }
+    if (@getimagesize($file['tmp_name']) === false) {
+        return [null, 'That file is not a readable image.'];
+    }
     if (!is_dir(UPLOAD_DIR)) @mkdir(UPLOAD_DIR, 0755, true);
-    $filename = 'gtr_' . bin2hex(random_bytes(6)) . '.' . $ext;
-    if (!move_uploaded_file($file['tmp_name'], UPLOAD_DIR . $filename)) return null;
-    return UPLOAD_PATH . $filename;
+    $filename = 'gtr_' . bin2hex(random_bytes(6)) . '.' . ($ext === 'jpeg' ? 'jpg' : $ext);
+    if (!move_uploaded_file($file['tmp_name'], UPLOAD_DIR . $filename)) {
+        return [null, 'Could not save the image - check folder permissions for ' . UPLOAD_PATH . '.'];
+    }
+    return [UPLOAD_PATH . $filename, null];
 }
 
 /* ---------- ORDER ITEMS PARSER ----------
@@ -567,8 +587,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('admin.php?tab=guitars');
         }
 
-        $uploaded = handle_image_upload($_FILES['image'] ?? null);
-        $image = $uploaded !== null ? $uploaded : $imageUrl;
+        [$upPath, $upError] = handle_image_upload($_FILES['image'] ?? null);
+        $notice = '';
+        if ($upError !== null) {
+            $notice = 'Image not saved: ' . $upError;
+            $image = $imageUrl;
+        } elseif (is_string($upPath)) {
+            $image = $upPath;
+        } else {
+            $image = $imageUrl;
+            if ($image !== '' && !preg_match('#^https?://#i', $image) && !is_file(__DIR__ . '/' . $image)) {
+                $notice = 'Saved, but the image path does not exist on the server (' . $image . ') - the shop will show a placeholder.';
+            }
+        }
 
         if ($id > 0) {
             if ($image === '') {
@@ -578,11 +609,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $stmt = $pdo->prepare('UPDATE guitars SET name=?, brand=?, category=?, price=?, stock=?, image=?, description=?, is_bestseller=? WHERE id=?');
             $stmt->execute([$name, $brand, $category, $price, $stock, $image, $description, $bestseller, $id]);
-            flash('success', '"' . $name . '" was updated.');
+            flash($notice !== '' ? 'error' : 'success', $notice !== '' ? $notice : '"' . $name . '" was updated.');
         } else {
             $stmt = $pdo->prepare('INSERT INTO guitars (name, brand, category, price, stock, image, description, is_bestseller) VALUES (?,?,?,?,?,?,?,?)');
             $stmt->execute([$name, $brand, $category, $price, $stock, $image, $description, $bestseller]);
-            flash('success', '"' . $name . '" was added.');
+            flash($notice !== '' ? 'error' : 'success', $notice !== '' ? $notice : '"' . $name . '" was added.');
         }
         redirect('admin.php?tab=guitars');
     }
@@ -665,7 +696,7 @@ if (!admin_logged_in()) {
     <title>Admin Login — Shan's Guitar</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;1,500&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/admin.css">
+    <link rel="stylesheet" href="assets/admin.css?v=<?= filemtime(__DIR__ . '/assets/admin.css') ?>">
     </head>
     <body class="admin-body">
       <?php if ($flash): ?>
@@ -777,7 +808,7 @@ if ($tab === 'orders') {
 <title><?= e($pageTitle) ?> — Admin · Shan's Guitar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;1,500&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/admin.css">
+<link rel="stylesheet" href="assets/admin.css?v=<?= filemtime(__DIR__ . '/assets/admin.css') ?>">
 <style>
   /* Accept / Reject buttons */
   .btn-accept {
@@ -802,7 +833,7 @@ if ($tab === 'orders') {
 
 <div class="admin-shell">
   <aside class="admin-sidebar">
-    <div class="admin-brand"><span class="dot"></span> shan's guitar<br><small style="margin-left:17px;">Admin</small></div>
+    <div class="admin-brand"><span class="brand-text">shan's guitar</span><small>Admin</small></div>
 
     <a href="admin.php?tab=dashboard" class="admin-nav-link <?= $tab === 'dashboard' ? 'active' : '' ?>">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
@@ -827,7 +858,7 @@ if ($tab === 'orders') {
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="admin_logout">
         <button class="admin-logout" type="submit" style="width:100%; border:0; background:transparent; cursor:pointer; text-align:left;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
           Log out
         </button>
       </form>
@@ -1051,7 +1082,7 @@ if ($tab === 'orders') {
                 <input type="file" name="image" accept=".jpg,.jpeg,.png,.webp">
               </label>
               <label>...or image URL
-                <input type="text" name="image_url" placeholder="images/guitars/example.jpg" value="<?= e($imgVal) ?>">
+                <input type="text" name="image_url" placeholder="images/products/your-photo.jpg" value="<?= e($imgVal) ?>">
               </label>
 
               <label>Description
@@ -1204,7 +1235,6 @@ if ($tab === 'orders') {
 </html>
 
 
-
 ```
 
 ## brands.php
@@ -1288,9 +1318,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action !== '' && $id) {
     if ($action === 'add') {
         $p = product_by_id($id);
         if ($p) {
-            cart_add($id);                                        /* ← this is the "recording" */
-            if ($isAjax) cart_json(true, $p['name'] . ' added to your cart.');
-            flash('success', $p['name'] . ' added to your cart.');
+            /* stock cap: never allow more units in the cart than exist */
+            $stock = (int)($p['stock'] ?? 0);
+            $have  = (int)(cart()[$id] ?? 0);
+            if ($stock <= 0) {
+                if ($isAjax) cart_json(false, $p['name'] . ' is out of stock.');
+                flash('error', $p['name'] . ' is out of stock.');
+            } elseif ($have >= $stock) {
+                if ($isAjax) cart_json(false, 'Only ' . $stock . ' in stock - already all in your cart.');
+                flash('error', 'Only ' . $stock . ' in stock - already all in your cart.');
+            } else {
+                cart_add($id);
+                if ($have + 1 > $stock) {
+                    cart_set($id, $stock);
+                    if ($isAjax) cart_json(true, 'Only ' . $stock . ' in stock - quantity capped.');
+                    flash('error', 'Only ' . $stock . ' in stock - quantity capped.');
+                } else {
+                    if ($isAjax) cart_json(true, $p['name'] . ' added to your cart.');
+                    flash('success', $p['name'] . ' added to your cart.');
+                }
+            }
         } elseif ($isAjax) {
             cart_json(false, 'Product not found.');
         }
@@ -1304,10 +1351,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action !== '' && $id) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
+    $capped = [];
     foreach (($_POST['qty'] ?? []) as $pid => $qty) {
-        cart_set((int)$pid, max(0, (int)$qty));
+        $pid = (int)$pid; $qty = max(0, (int)$qty);
+        $p = product_by_id($pid);
+        $stock = $p ? (int)($p['stock'] ?? 0) : 0;
+        if ($p && $stock > 0 && $qty > $stock) {
+            $qty = $stock;
+            $capped[] = $p['name'] . ' (only ' . $stock . ' in stock)';
+        }
+        cart_set($pid, $qty);
     }
-    flash('success', 'Cart updated.');
+    flash($capped ? 'error' : 'success', $capped ? 'Quantity capped: ' . implode(', ', $capped) . '.' : 'Cart updated.');
     redirect('cart.php');
 }
 
@@ -1372,7 +1427,7 @@ require __DIR__ . '/includes/header.php';
                 <div class="cart-qty">
                   <label for="qty-<?= (int)$p['id'] ?>">Qty</label>
                   <input type="number" name="qty[<?= (int)$p['id'] ?>]" id="qty-<?= (int)$p['id'] ?>"
-                         value="<?= (int)$r['qty'] ?>" min="0" max="99">
+                         value="<?= (int)$r['qty'] ?>" min="0" max="<?= (int)$p['stock'] ?>">
                 </div>
                 <div class="cart-line"><?= peso($r['line']) ?></div>
                 <a class="cart-remove" href="cart.php?action=remove&amp;id=<?= (int)$p['id'] ?>" aria-label="Remove <?= e($p['name']) ?>">&times;</a>
@@ -1402,6 +1457,7 @@ require __DIR__ . '/includes/header.php';
 </section>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>
+
 ```
 
 ## checkout.php
@@ -1433,6 +1489,8 @@ $user = current_user();
 
 $errors = [];
 $fullname = $user['name'] ?? '';
+$phone = $address = $city = $notes = '';
+$fulfillment = 'delivery';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
@@ -1452,27 +1510,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$errors) {
         $pdo = db();
         if (!$pdo) {
-            $errors[] = 'Could not connect to the database — check includes/config.php and run install.php.';
+            $errors[] = 'Could not connect to the database — check your MySQL settings in includes/config.php and that MySQL is running in XAMPP.';
         } else {
-            $items = array_map(fn($r) => [
-                'id'    => (int)$r['p']['id'],
-                'name'  => $r['p']['name'],
-                'price' => (int)$r['p']['price'],
-                'qty'   => (int)$r['qty'],
-            ], $rows);
-
-            $stmt = $pdo->prepare(
-                'INSERT INTO orders (user_id, items, total, fulfillment, fullname, phone, address, city, notes, status, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
-            );
-            $stmt->execute([
-                $user['id'], json_encode($items), (int)$total, $fulfillment,
-                $fullname, $phone, $address, $city, $notes, 'pending'
-            ]);
-
-            cart_clear();
-            flash('success', 'Thank you! Your order has been placed — we\'ll contact you shortly to confirm.');
-            redirect('account.php');
+            try {
+                /* fresh stock re-check inside a transaction - two buyers can
+                   never oversell the last unit */
+                $pdo->beginTransaction();
+                foreach ($rows as $r) {
+                    $chk = $pdo->prepare('SELECT stock FROM guitars WHERE id = ?');
+                    $chk->execute([(int)$r['p']['id']]);
+                    $have = $chk->fetchColumn();
+                    if ($have === false || (int)$have < (int)$r['qty']) {
+                        throw new RuntimeException($r['p']['name'] . ' - only ' . (int)$have . ' left. Please update your cart.');
+                    }
+                }
+                $items = array_map(fn($r) => [
+                    'id'    => (int)$r['p']['id'],
+                    'name'  => $r['p']['name'],
+                    'price' => (int)$r['p']['price'],
+                    'qty'   => (int)$r['qty'],
+                ], $rows);
+                $stmt = $pdo->prepare(
+                    'INSERT INTO orders (user_id, items, total, fulfillment, fullname, phone, address, city, notes, status, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
+                );
+                $stmt->execute([
+                    $user['id'], json_encode($items), (float)$total, $fulfillment,
+                    $fullname, $phone, $address, $city, $notes, 'pending'
+                ]);
+                foreach ($rows as $r) {
+                    $dec = $pdo->prepare('UPDATE guitars SET stock = stock - ? WHERE id = ? AND stock >= ?');
+                    $dec->execute([(int)$r['qty'], (int)$r['p']['id'], (int)$r['qty']]);
+                    if ($dec->rowCount() !== 1) {
+                        throw new RuntimeException('Stock changed while placing your order - nothing was saved. Please review your cart and try again.');
+                    }
+                }
+                $pdo->commit();
+                cart_clear();
+                flash('success', 'Thank you! Your order has been placed - we\'ll contact you shortly to confirm.');
+                redirect('account.php');
+            } catch (RuntimeException $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                $errors[] = $e->getMessage();
+            } catch (PDOException $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                $errors[] = 'Something went wrong saving your order - please try again.';
+            }
         }
     }
 }
@@ -1504,33 +1587,33 @@ require __DIR__ . '/includes/header.php';
             <input type="text" name="fullname" value="<?= e($fullname) ?>" required>
           </label>
           <label>Contact number
-            <input type="tel" name="phone" placeholder="+63 9XX XXX XXXX" required>
+            <input type="tel" name="phone" placeholder="+63 9XX XXX XXXX" value="<?= e($phone) ?>" required>
           </label>
         </div>
 
         <h3>2 · Fulfillment</h3>
         <div class="fulfill-row">
           <label class="fulfill-option">
-            <input type="radio" name="fulfillment" value="delivery" checked>
+            <input type="radio" name="fulfillment" value="delivery" <?= $fulfillment === 'delivery' ? 'checked' : '' ?>>
             <span><strong>Delivery</strong><small>We ship to your address</small></span>
           </label>
           <label class="fulfill-option">
-            <input type="radio" name="fulfillment" value="pickup">
+            <input type="radio" name="fulfillment" value="pickup" <?= $fulfillment === 'pickup' ? 'checked' : '' ?>>
             <span><strong>Store pickup</strong><small>Dumaguete City, Negros Oriental</small></span>
           </label>
         </div>
 
         <div class="form-grid">
           <label>Delivery / pickup address
-            <input type="text" name="address" placeholder="House no., street, barangay" required>
+            <input type="text" name="address" placeholder="House no., street, barangay" value="<?= e($address) ?>" required>
           </label>
           <label>City / province
-            <input type="text" name="city" placeholder="e.g. Dumaguete City, Negros Oriental" required>
+            <input type="text" name="city" placeholder="e.g. Dumaguete City, Negros Oriental" value="<?= e($city) ?>" required>
           </label>
         </div>
 
         <label>Order notes (optional)
-          <textarea name="notes" rows="3" placeholder="Anything we should know?"></textarea>
+          <textarea name="notes" rows="3" placeholder="Anything we should know?"><?= e($notes) ?></textarea>
         </label>
 
         <h3>3 · Payment</h3>
@@ -1727,15 +1810,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_email'] = $user['email'];
                 flash('success', 'Welcome back, ' . explode(' ', $user['name'])[0] . '!');
 
-                /* if a cart was built before logging in, merge it */
-                if (!empty($_SESSION['cart_before_login'])) {
-                    foreach ($_SESSION['cart_before_login'] as $id => $qty) {
-                        cart_add((int)$id, (int)$qty);
-                    }
-                    unset($_SESSION['cart_before_login']);
-                }
-
+                /* PATCH 4 — only allow redirects to pages inside this site.
+                   Blocks login.php?next=https://evil.com (open redirect / phishing). */
                 $next = $_GET['next'] ?? 'account.php';
+                if (strpos($next, '/') !== 0 || strpos($next, '//') === 0) {
+                    $next = 'account.php';
+                }
                 redirect($next);
             }
         }
@@ -1822,13 +1902,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (strlen($name) < 2)                    $errors[] = 'Please enter your full name.';
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Please enter a valid email address.';
-    if (strlen($pass) < 6)                    $errors[] = 'Password must be at least 6 characters.';
+    if (strlen($pass) < 8)                    $errors[] = 'Password must be at least 8 characters.';
     if ($pass !== $pass2)                        $errors[] = 'Passwords do not match.';
 
     if (!$errors) {
         $pdo = db();
         if (!$pdo) {
-            $errors[] = 'Could not connect to the database. Check your MySQL settings in includes/config.php, then open install.php once.';
+            $errors[] = 'Could not connect to the database. Check your MySQL settings in includes/config.php and that MySQL is running in XAMPP.';
         } else {
             $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
             $stmt->execute([$email]);
@@ -1883,7 +1963,7 @@ require __DIR__ . '/includes/header.php';
       </label>
       <label>
         Password
-        <input type="password" name="password" placeholder="At least 6 characters" required>
+        <input type="password" name="password" placeholder="At least 8 characters" required>
       </label>
       <label>
         Confirm password
@@ -2187,8 +2267,8 @@ body.admin-body {
   border-bottom: 1px solid rgba(253,243,224,.12);
   margin-bottom: 18px;
 }
-.admin-brand .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
-.admin-brand small { display: block; margin-top: 2px; font-family: var(--font-body); font-size: 0.6rem; letter-spacing: 0.14em; color: var(--gold); text-transform: uppercase; font-weight: 700; }
+.admin-brand .brand-text { white-space: nowrap; }
+.admin-brand small { margin-left: auto; font-family: var(--font-body); font-size: 0.6rem; letter-spacing: 0.14em; color: var(--gold); text-transform: uppercase; font-weight: 700; }
 
 .admin-nav-link {
   display: flex;
@@ -2215,7 +2295,7 @@ body.admin-body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 11px 14px;
+  padding: 8px 12px;
   border-radius: 10px;
   font-size: 0.82rem;
   font-weight: 600;
@@ -2223,6 +2303,7 @@ body.admin-body {
   transition: 0.2s ease;
 }
 .admin-logout:hover { background: rgba(192,57,43,.15); color: #e8998f; }
+.admin-logout svg { width: 16px; height: 16px; flex-shrink: 0; }
 
 .admin-main { padding: 30px 36px 60px; max-width: 1400px; }
 
@@ -2583,6 +2664,10 @@ const $ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
 
 const peso = n => "₱" + Number(n).toLocaleString("en-PH");
 
+/* escape product data before it goes into innerHTML (XSS protection) */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
 const AVAIL_LABEL = {
   "in-store":  "In store now",
   "online":    "Online only",
@@ -2616,6 +2701,7 @@ document.addEventListener("DOMContentLoaded", () => {
   safe("modal",       initModal);
   safe("toast",       initToast);
   safe("add-to-cart", initAddToCart);   /* NEW */
+  safe("edit-profile-toggle", initEditProfileToggle);   /* Patch 7: account.php EDIT PROFILE */
 });
 
 
@@ -2708,20 +2794,20 @@ function initBestsellers() {
    3. CARD TEMPLATE
     */
 function cardHTML(p) {
-  const badge = p.badge ? `<span class="badge">${p.badge}</span>` : "";
+  const badge = p.badge ? `<span class="badge">${esc(p.badge)}</span>` : "";
   return `
     <article class="product-card" data-id="${p.id}">
       <div class="product-media">
         ${badge}
-        <img src="${p.image}" alt="${p.name}" loading="lazy">
+        <img src="${esc(p.image)}" alt="${esc(p.name)}" loading="lazy">
       </div>
       <div class="product-info">
-        <p class="product-type">${p.category}</p>
-        <h3>${p.name}</h3>
+        <p class="product-type">${esc(p.category)}</p>
+        <h3>${esc(p.name)}</h3>
         <p class="price">${peso(p.price)}</p>
         <div class="card-actions">
           <button class="btn-view" type="button" data-view="${p.id}">VIEW</button>
-          <a class="btn-cart" href="cart.php?action=add&amp;id=${p.id}" data-add-cart="${p.id}">ADD TO CART</a>  <!-- NEW: data-add-cart -->
+          <a class="btn-cart" href="cart.php?action=add&amp;id=${p.id}" data-add-cart="${p.id}">ADD TO CART</a>
         </div>
       </div>
     </article>`;
@@ -2890,8 +2976,8 @@ function initModal() {
     $("#qvPrice").textContent = peso(p.price);
     $("#qvDesc").textContent  = p.desc;
     $("#qvMeta").innerHTML = `
-      <li><span>Brand</span><strong>${p.brand}</strong></li>
-      <li><span>Category</span><strong>${p.category}</strong></li>
+      <li><span>Brand</span><strong>${esc(p.brand)}</strong></li>
+      <li><span>Category</span><strong>${esc(p.category)}</strong></li>
       <li><span>Availability</span><strong>${AVAIL_LABEL[p.availability] || "—"}</strong></li>
       <li><span>Item code</span><strong>SG-${String(p.id).padStart(4, "0")}</strong></li>`;
 
@@ -2987,6 +3073,23 @@ async function addToCart(id, btn = null) {
   } finally {
     if (btn) btn.classList.remove("is-loading");
   }
+}
+
+/* 
+   8. EDIT PROFILE - account.php   [Patch 7]
+      The CSS sibling selector (.edit-details[open] + .info-grid ~ .profile-edit-form)
+      can never match: .edit-details lives inside .profile-card-head while the form
+      is a later child of .profile-card. Toggle the .force-open class the stylesheet
+      already supports (assets/style.css: .profile-edit-form.force-open).
+*/
+function initEditProfileToggle() {
+  $(".edit-details").forEach(d => {
+    d.addEventListener("toggle", () => {
+      const card = d.closest(".profile-card");
+      const form = card ? card.querySelector(".profile-edit-form") : null;
+      if (form) form.classList.toggle("force-open", d.open);
+    });
+  });
 }
 ```
 
@@ -4061,9 +4164,10 @@ h2 {
 .site-footer a:hover { color: var(--gold); opacity: 1; }
 .footer-app p { max-width: 310px; line-height: 1.7; }
 
-.app-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.app-buttons button { padding: 9px 14px; border: 1px solid var(--line-soft); border-radius: 8px; background: transparent; color: var(--cream); font-size: 0.72rem; cursor: pointer; transition: 0.2s ease; }
-.app-buttons button:hover { background: var(--gold); border-color: var(--gold); }
+.social-links { display: flex; gap: 10px; margin-top: 4px; }
+.social-links a { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border: 1px solid var(--line-soft); border-radius: 50%; opacity: 1; }
+.social-links svg { width: 18px; height: 18px; }
+.social-links a:hover { background: var(--gold); border-color: var(--gold); color: #1c150e; }
 
 .copyright {
   grid-column: 1 / -1;
@@ -4423,7 +4527,7 @@ h2 {
 .edit-details[open] summary { background: var(--brown); color: var(--cream); }
 
 .profile-edit-form { display: none; padding: 24px; }
-.edit-details[open] + .info-grid ~ .profile-edit-form,
+.profile-card:has(.edit-details[open]) .profile-edit-form,
 .profile-edit-form.force-open { display: block; }
 
 /* responsive */
@@ -4436,6 +4540,7 @@ h2 {
   .info-grid { grid-template-columns: 1fr; }
   .info-item:nth-child(odd) { border-right: 0; }
 }
+
 ```
 
 ## includes\config.php
@@ -4459,6 +4564,10 @@ define('SITE_CURRENCY', '₱');
 /* ----------  SESSION ---------- */
 if (session_status() === PHP_SESSION_NONE) {
     session_name('sg_session');
+    session_set_cookie_params([
+        'httponly' => true,   // JavaScript can't steal the session cookie
+        'samesite' => 'Lax',  // blocks cross-site requests from other websites
+    ]);
     session_start();
 }
 
@@ -4580,9 +4689,11 @@ function redirect(string $url): void {
 
 ```php
 <?php
-/* includes/footer.php — shared footer + JS for every page. */
+/* includes/footer.php — shared footer + JS for every page.
+   (Patched 2026-09: the second window.SG_PRODUCTS injection was removed —
+   header.php already injects it safely with JSON_HEX_TAG flags.) */
 if (!defined('SITE_NAME')) { require_once __DIR__ . '/config.php'; }
-$base = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+ $base = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 ?>
 <footer id="contact" class="site-footer">
   <div class="footer-brand">
@@ -4615,11 +4726,19 @@ $base = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
   </div>
 
   <div class="footer-app">
-    <h4>GET THE APP</h4>
-    <p>Browse our full catalogue, book setups, and manage your membership from your phone.</p>
-    <div class="app-buttons">
-      <button type="button">Google Play</button>
-      <button type="button">App Store</button>
+    <h4>FOLLOW US</h4>
+    <p>New arrivals, restocks and store news - follow us on social media.</p>
+    <!-- TODO: replace the page URLs below with your real handles -->
+    <div class="social-links">
+      <a href="https://facebook.com" target="_blank" rel="noopener" aria-label="Facebook">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.9h2.54V9.85c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.23.2 2.23.2v2.46h-1.26c-1.24 0-1.63.77-1.63 2.52v2.02h2.78l-.44 2.9h-2.34V22c4.78-.76 8.44-4.92 8.44-9.94Z"/></svg>
+      </a>
+      <a href="https://instagram.com" target="_blank" rel="noopener" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.8" y="2.8" width="18.4" height="18.4" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="1.15" fill="currentColor" stroke="none"/></svg>
+      </a>
+      <a href="https://tiktok.com" target="_blank" rel="noopener" aria-label="TikTok">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 1 1-2.59-2.59c.27 0 .53.04.78.12V9.77a5.76 5.76 0 0 0-.78-.05 5.66 5.66 0 1 0 5.66 5.66V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3a4.28 4.28 0 0 1-3.31-1.48Z"/></svg>
+      </a>
     </div>
   </div>
 
@@ -4652,10 +4771,6 @@ $base = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script>
-  /* products + brands injected by PHP so quick-view works on every page */
-  window.SG_PRODUCTS = <?= json_encode($GLOBALS['PRODUCTS'] ?? []) ?>;
-</script>
 <script src="<?= $base ?>/assets/script.js"></script>
 </body>
 </html>
@@ -4765,7 +4880,7 @@ window.SG_PRODUCTS = <?= json_encode($PRODUCTS, JSON_UNESCAPED_UNICODE | JSON_HE
         the `guitars` table so the admin panel starts with real data.
 
    Each product keeps EXACTLY the same shape as before:
-     id, name, brand, category, price, badge, availability,
+     id, name, brand, category, price, stock, badge, availability,
      featured (shown at homepage), image, desc
    so header.php, footer.php, script.js, shop.php, cart.php, checkout.php
    and the helpers at the bottom all keep working with ZERO changes.
@@ -4779,20 +4894,20 @@ window.SG_PRODUCTS = <?= json_encode($PRODUCTS, JSON_UNESCAPED_UNICODE | JSON_HE
 /* ---------- SEED / FALLBACK CATALOGUE ----------
    Also read by seed.php (step 2) to fill the guitars table once. */
 $SEED_PRODUCTS = [
-    ['id' => 1,  'name' => 'Fender Stratocaster II',    'brand' => 'Fender',    'category' => 'electric',    'price' => 35500,  'badge' => 'Bestseller', 'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/Fender_Strat_2_CoralRed.webp',   'desc' => 'Alder body, maple neck and three single-coils — the classic bell-like Strat chime, professionally set up in store.'],
-    ['id' => 2,  'name' => 'Yamaha FG800',              'brand' => 'Yamaha',    'category' => 'acoustic',    'price' => 15500,  'badge' => 'Staff Pick', 'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/Yamaha_FG800.jpg',      'desc' => 'Solid spruce top dreadnought with a big, warm voice. The best first serious acoustic you can buy.'],
-    ['id' => 3,  'name' => 'Fender Stratocaster White', 'brand' => 'Fender',    'category' => 'electric',    'price' => 45000,  'badge' => 'Popular',    'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/Fender-player-ii-stratocaster-wh.jpg', 'desc' => 'Olympic White finish with a rosewood fingerboard — bright, articulate and endlessly versatile.'],
-    ['id' => 4,  'name' => 'PRS Custom 24 10-Top',      'brand' => 'PRS',       'category' => 'electric',    'price' => 96500,  'badge' => 'Bestseller', 'availability' => 'online',    'featured' => true,  'image' => 'images/products/prs_custom_24_10_top.jpg', 'desc' => 'Flame maple 10-Top, 85/15 pickups and a 5-way blade — modern precision with vintage soul.'],
-    ['id' => 5,  'name' => 'Gibson Les Paul Standard',  'brand' => 'Gibson',    'category' => 'electric',    'price' => 105500, 'badge' => 'Bestseller', 'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/2019-Gibson-LP-Std-a-1.webp',    'desc' => 'Mahogany body, carved maple cap and Burstbucker humbuckers. Thick, singing sustain.'],
-    ['id' => 6,  'name' => 'Epiphone SG Standard',      'brand' => 'Epiphone', 'category' => 'electric',    'price' => 25000,  'badge' => 'Bestseller', 'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/epiphone_sg_standard.jpg', 'desc' => 'Lightweight double-cutaway with fierce mid-range bite — a rock machine at a fair price.'],
-    ['id' => 7,  'name' => 'Martin D-28',               'brand' => 'Martin',    'category' => 'acoustic',    'price' => 178000, 'badge' => '',           'availability' => 'pre-order', 'featured' => true,  'image' => 'images/products/Martin_D28.jpg',         'desc' => 'The benchmark dreadnought since 1931. East Indian rosewood back and sides, Sitka spruce top.'],
-    ['id' => 8,  'name' => 'Taylor GS Mini Mahogany',   'brand' => 'Taylor',    'category' => 'acoustic',    'price' => 39500,  'badge' => 'Popular',    'availability' => 'online',    'featured' => true,  'image' => 'images/products/Taylor_GS_Mini_Mahogany_Acoustic.webp',     'desc' => 'Compact scaled-down Grand Symphony with surprising volume. Travel-ready with a gig bag.'],
-    ['id' => 9,  'name' => 'Fender Player Jazz Bass',   'brand' => 'Fender',    'category' => 'bass',        'price' => 48000,  'badge' => '',           'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/Fender_Player_Jazz_Bazz.jpg',   'desc' => 'Two Player Series single-coils and a slim neck — the go-to bass for every genre.'],
-    ['id' => 10, 'name' => 'Yamaha TRBX304',            'brand' => 'Yamaha',    'category' => 'bass',        'price' => 22500,  'badge' => '',           'availability' => 'in-store',  'featured' => false, 'image' => 'images/products/trbx304.jpg',     'desc' => 'Mahogany body, active 2-band EQ and a 5-way Performance EQ switch.'],
-    ['id' => 11, 'name' => 'Cordoba C5 Classical',      'brand' => 'Cordoba',   'category' => 'classical',   'price' => 18500,  'badge' => '',           'availability' => 'online',    'featured' => false, 'image' => 'images/products/c5.jpg',          'desc' => 'Solid cedar top nylon-string with a wide, comfortable neck for fingerstyle players.'],
-    ['id' => 12, 'name' => 'Gretsch G2622 Streamliner', 'brand' => 'Gretsch',   'category' => 'electric',    'price' => 42500,  'badge' => 'Staff Pick', 'availability' => 'in-store',  'featured' => false, 'image' => 'images/products/g2622.jpg',       'desc' => 'Centre-block semi-hollow with Broad\'Tron pickups — jangle, twang and feedback control.'],
-    ['id' => 13, 'name' => 'Ernie Ball Slinky (3-Pack)','brand' => 'Ernie Ball','category' => 'accessories', 'price' => 1450,   'badge' => '',           'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/ernie_ball_slinky_electric_9_42_3pack.jpg',     'desc' => 'Hybrid Slinky 9-46 nickel wound strings. Three sets, the industry standard.'],
-    ['id' => 14, 'name' => 'Fender Deluxe Gig Bag',     'brand' => 'Fender',    'category' => 'accessories', 'price' => 3500,   'badge' => '',           'availability' => 'online',    'featured' => false, 'image' => 'images/products/gigbag.jpg',      'desc' => '25 mm padding, dual shoulder straps and an accessory pocket. Fits most electrics.'],
+    ['id' => 1,  'name' => 'Fender Stratocaster II',    'brand' => 'Fender',    'category' => 'electric',    'price' => 35500, 'stock' => 7,  'badge' => 'Bestseller', 'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/Fender_Strat_2_CoralRed.webp',   'desc' => 'Alder body, maple neck and three single-coils — the classic bell-like Strat chime, professionally set up in store.'],
+    ['id' => 2,  'name' => 'Yamaha FG800',              'brand' => 'Yamaha',    'category' => 'acoustic',    'price' => 15500, 'stock' => 9,  'badge' => 'Staff Pick', 'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/Yamaha_FG800.jpg',      'desc' => 'Solid spruce top dreadnought with a big, warm voice. The best first serious acoustic you can buy.'],
+    ['id' => 3,  'name' => 'Fender Stratocaster White', 'brand' => 'Fender',    'category' => 'electric',    'price' => 45000, 'stock' => 5,  'badge' => 'Popular',    'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/Fender-player-ii-stratocaster-wh.jpg', 'desc' => 'Olympic White finish with a rosewood fingerboard — bright, articulate and endlessly versatile.'],
+    ['id' => 4,  'name' => 'PRS Custom 24 10-Top',      'brand' => 'PRS',       'category' => 'electric',    'price' => 96500, 'stock' => 4,  'badge' => 'Bestseller', 'availability' => 'online',    'featured' => true,  'image' => 'images/products/prs_custom_24_10_top.jpg', 'desc' => 'Flame maple 10-Top, 85/15 pickups and a 5-way blade — modern precision with vintage soul.'],
+    ['id' => 5,  'name' => 'Gibson Les Paul Standard',  'brand' => 'Gibson',    'category' => 'electric',    'price' => 105500, 'stock' => 6, 'badge' => 'Bestseller', 'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/2019-Gibson-LP-Std-a-1.webp',    'desc' => 'Mahogany body, carved maple cap and Burstbucker humbuckers. Thick, singing sustain.'],
+    ['id' => 6,  'name' => 'Epiphone SG Standard',      'brand' => 'Epiphone', 'category' => 'electric',    'price' => 25000, 'stock' => 8,  'badge' => 'Bestseller', 'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/epiphone_sg_standard.jpg', 'desc' => 'Lightweight double-cutaway with fierce mid-range bite — a rock machine at a fair price.'],
+    ['id' => 7,  'name' => 'Martin D-28',               'brand' => 'Martin',    'category' => 'acoustic',    'price' => 178000, 'stock' => 2, 'badge' => '',           'availability' => 'pre-order', 'featured' => true,  'image' => 'images/products/Martin_D28.jpg',         'desc' => 'The benchmark dreadnought since 1931. East Indian rosewood back and sides, Sitka spruce top.'],
+    ['id' => 8,  'name' => 'Taylor GS Mini Mahogany',   'brand' => 'Taylor',    'category' => 'acoustic',    'price' => 39500, 'stock' => 10,  'badge' => 'Popular',    'availability' => 'online',    'featured' => true,  'image' => 'images/products/Taylor_GS_Mini_Mahogany_Acoustic.webp',     'desc' => 'Compact scaled-down Grand Symphony with surprising volume. Travel-ready with a gig bag.'],
+    ['id' => 9,  'name' => 'Fender Player Jazz Bass',   'brand' => 'Fender',    'category' => 'bass',        'price' => 48000, 'stock' => 6,  'badge' => '',           'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/Fender_Player_Jazz_Bazz.jpg',   'desc' => 'Two Player Series single-coils and a slim neck — the go-to bass for every genre.'],
+    ['id' => 10, 'name' => 'Yamaha TRBX304',            'brand' => 'Yamaha',    'category' => 'bass',        'price' => 22500, 'stock' => 12,  'badge' => '',           'availability' => 'in-store',  'featured' => false, 'image' => 'images/products/Yamaha_TRBX304_FactoryBlue.jpg',     'desc' => 'Mahogany body, active 2-band EQ and a 5-way Performance EQ switch.'],
+    ['id' => 11, 'name' => 'Cordoba C5 Classical',      'brand' => 'Cordoba',   'category' => 'classical',   'price' => 18500, 'stock' => 5,  'badge' => '',           'availability' => 'online',    'featured' => false, 'image' => 'images/products/cordoba_c5_classical.jpg',          'desc' => 'Solid cedar top nylon-string with a wide, comfortable neck for fingerstyle players.'],
+    ['id' => 12, 'name' => 'Gretsch G2622 Streamliner', 'brand' => 'Gretsch',   'category' => 'electric',    'price' => 42500, 'stock' => 4,  'badge' => 'Staff Pick', 'availability' => 'in-store',  'featured' => false, 'image' => 'images/products/gretsch_g2622_streamliner.webp',       'desc' => 'Centre-block semi-hollow with Broad\'Tron pickups — jangle, twang and feedback control.'],
+    ['id' => 13, 'name' => 'Ernie Ball Slinky (3-Pack)','brand' => 'Ernie Ball','category' => 'accessories', 'price' => 1450, 'stock' => 40,   'badge' => '',           'availability' => 'in-store',  'featured' => true,  'image' => 'images/products/ernie_ball_slinky_electric_9_42_3pack.jpg',     'desc' => 'Hybrid Slinky 9-46 nickel wound strings. Three sets, the industry standard.'],
+    ['id' => 14, 'name' => 'Fender Deluxe Gig Bag',     'brand' => 'Fender',    'category' => 'accessories', 'price' => 3500, 'stock' => 25,   'badge' => '',           'availability' => 'online',    'featured' => false, 'image' => 'images/products/Fender_Deluxe_Gig_Bag.jpg',      'desc' => '25 mm padding, dual shoulder straps and an accessory pocket. Fits most electrics.'],
 ];
 
 /* The shop starts from the seed; the DB switch below replaces it
@@ -4827,6 +4942,7 @@ function load_products_from_db(): array {
             'brand'        => (string)$g['brand'],
             'category'     => $cat,
             'price'        => (float)$g['price'],
+            'stock'        => $stock,
             /* the admin's "Mark as bestseller" checkbox now controls the
                homepage carousel and the card badge */
             'badge'        => !empty($g['is_bestseller']) ? 'Bestseller' : '',

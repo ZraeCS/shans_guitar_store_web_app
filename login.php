@@ -1,3 +1,4 @@
+
 <?php
 require_once __DIR__ . '/includes/config.php';
 
@@ -35,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 /* PATCH 4 — only allow redirects to pages inside this site.
                    Blocks login.php?next=https://evil.com (open redirect / phishing). */
                 $next = $_GET['next'] ?? 'account.php';
-                if (strpos($next, '/') !== 0 || strpos($next, '//') === 0) {
+                if (strpos($next, '/') !== 0 || strpos($next, '//') === 0 || strpos($next, '/\\') === 0) {
                     $next = 'account.php';
                 }
                 redirect($next);
@@ -62,7 +63,7 @@ require __DIR__ . '/includes/header.php';
       </ul>
     <?php endif; ?>
 
-    <form method="post" action="login.php<?= isset($_GET['next']) ? '?next=' . urlencode($_GET['next']) : '' ?>" class="auth-form" novalidate>
+    <form method="post" action="login.php<?= isset($_GET['next']) ? '?next=' . urlencode($_GET['next']) : '' ?>" class="auth-form">
       <?= csrf_field() ?>
       <label>
         Email address
@@ -80,3 +81,5 @@ require __DIR__ . '/includes/header.php';
 </section>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>
+
+
