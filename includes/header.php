@@ -22,7 +22,7 @@ if (!isset($PRODUCTS))     { require_once __DIR__ . '/products.php'; }   /* NEW 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Outfit:wght@300..700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= $base ?>/assets/style.css">
+  <link rel="stylesheet" href="<?= $base ?>/assets/style.css?v=<?= filemtime(__DIR__ . '/../assets/style.css') ?>">
 </head>
 <body>
 

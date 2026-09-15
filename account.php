@@ -8,6 +8,45 @@ require_login();
 /* ---- handle profile update (EDIT PROFILE form) ---- */
  $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    /* ---- cancel an own order (allowed while it is still 'pending') ---- */
+    if (($_POST['action'] ?? '') === 'cancel_order') {
+        csrf_check();
+        $orderId = (int)($_POST['order_id'] ?? 0);
+        if (!$pdo) {
+            flash('error', 'Could not connect to the database — check your MySQL settings in includes/config.php and that MySQL is running in XAMPP.');
+        } else {
+            try {
+                $pdo->beginTransaction();
+                $st = $pdo->prepare('SELECT status, items FROM orders WHERE id = ? AND user_id = ? FOR UPDATE');
+                $st->execute([$orderId, $user['id']]);
+                $order = $st->fetch();
+
+                /* the WHERE status='pending' guard makes double-cancels and
+                   races with an admin accept impossible */
+                $up = $pdo->prepare("UPDATE orders SET status = 'cancelled', status_updated_at = NOW() WHERE id = ? AND user_id = ? AND status = 'pending'");
+                $up->execute([$orderId, $user['id']]);
+                if (!$order || $up->rowCount() !== 1) {
+                    throw new RuntimeException('This order can no longer be cancelled.');
+                }
+                /* return every item to stock */
+                foreach (json_decode($order['items'], true) ?: [] as $it) {
+                    $rs = $pdo->prepare('UPDATE guitars SET stock = stock + ? WHERE id = ?');
+                    $rs->execute([(int)($it['qty'] ?? 0), (int)($it['id'] ?? 0)]);
+                }
+                $pdo->commit();
+                flash('success', 'Order #' . $orderId . ' cancelled — its items are back in stock.');
+            } catch (RuntimeException $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                flash('error', $e->getMessage());
+            } catch (PDOException $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                flash('error', 'Could not cancel the order. Please try again.');
+            }
+        }
+        redirect('account.php#orders');
+    }
+
     csrf_check();
 
     $name  = trim($_POST['name']  ?? '');
@@ -214,18 +253,43 @@ require __DIR__ . '/includes/header.php';
           <div class="orders-list">
             <?php foreach ($orders as $o): ?>
               <?php
-                $items  = json_decode($o['items'], true) ?: [];
-                $status = ucfirst($o['status']);
+                $items     = json_decode($o['items'], true) ?: [];
+                $status    = ucfirst($o['status']);
+                $isPending = ($o['status'] === 'pending');
+                $cancelled = ($o['status'] === 'cancelled');
+                $stepIndex = ['pending' => 0, 'confirmed' => 1, 'shipped' => 2, 'delivered' => 3][$o['status']] ?? null;
+                $placedAt  = date('M j, Y · g:i A', strtotime($o['created_at']));
+                $updatedAt = !empty($o['status_updated_at']) ? date('M j, Y · g:i A', strtotime($o['status_updated_at'])) : null;
               ?>
-              <article class="order-card">
+              <article class="order-card<?= $cancelled ? ' order-cancelled' : '' ?>">
                 <div class="order-head">
                   <div>
                     <strong>Order #<?= (int)$o['id'] ?></strong>
-                    <span class="order-date"><?= date('M j, Y · g:i A', strtotime($o['created_at'])) ?></span>
+                    <span class="order-date"><?= $placedAt ?></span>
                   </div>
-                  <span class="order-status status-<?= e($o['status']) ?>"><?= e($status) ?></span>
+                  <div class="order-actions">
+                    <span class="order-status status-<?= e($o['status']) ?>"><?= e($status) ?></span>
+                    <?php if ($isPending): ?>
+                      <form method="post" action="account.php" class="cancel-order-form" onsubmit="return confirm('Cancel Order #<?= (int)$o['id'] ?>? Its items will be returned to stock.');">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="cancel_order">
+                        <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
+                        <button type="submit" class="btn-cancel-order">CANCEL ORDER</button>
+                      </form>
+                    <?php endif; ?>
+                  </div>
                 </div>
                 <div class="order-body">
+                  <?php if ($cancelled): ?>
+                    <p class="order-cancelled-note">This order was cancelled<?= $updatedAt ? ' on ' . e($updatedAt) : '' ?>. Any items were returned to stock.</p>
+                  <?php else: ?>
+                    <ol class="order-timeline" aria-label="Order progress">
+                      <?php foreach (['Placed', 'Confirmed', 'Shipped', 'Delivered'] as $i => $label): ?>
+                        <li class="<?= ($stepIndex !== null && $i <= $stepIndex) ? 'done' : '' ?><?= ($stepIndex === $i) ? ' current' : '' ?>"><?= $label ?></li>
+                      <?php endforeach; ?>
+                    </ol>
+                    <p class="order-updated">Placed <?= e($placedAt) ?><?= ($stepIndex > 0 && $updatedAt) ? ' · Last update ' . e($updatedAt) : '' ?></p>
+                  <?php endif; ?>
                   <ul class="order-items">
                     <?php foreach ($items as $it): ?>
                       <li>

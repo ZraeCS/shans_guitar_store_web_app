@@ -81,6 +81,6 @@ if (!defined('SITE_NAME')) { require_once __DIR__ . '/config.php'; }
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="<?= $base ?>/assets/script.js"></script>
+<script src="<?= $base ?>/assets/script.js?v=<?= filemtime(__DIR__ . '/../assets/script.js') ?>"></script>
 </body>
 </html>

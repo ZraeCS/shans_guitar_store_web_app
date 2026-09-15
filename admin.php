@@ -262,21 +262,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('admin.php?tab=guitars' . $qs);
     }
 
-    /* ---- Update order status (also used by Accept / Reject buttons) ---- */
+    /* ---- Update order status (also used by Accept / Reject buttons).
+       Every change is stamped with status_updated_at; moving an order
+       into 'cancelled' returns its items to stock exactly once. ---- */
     if ($action === 'update_order_status') {
         csrf_check();
         $id     = (int)($_POST['order_id'] ?? 0);
         $status = $_POST['status'] ?? '';
         $allowedStatus = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
         if (in_array($status, $allowedStatus, true)) {
-            $stmt = $pdo->prepare('UPDATE orders SET status = ? WHERE id = ?');
-            $stmt->execute([$status, $id]);
-            if ($status === 'confirmed') {
-                flash('success', 'Order #' . $id . ' accepted ✔ — marked Confirmed.');
-            } elseif ($status === 'cancelled') {
-                flash('error', 'Order #' . $id . ' rejected ✖ — marked Cancelled.');
-            } else {
-                flash('success', 'Order #' . $id . ' marked ' . ucfirst($status) . '.');
+            try {
+                $pdo->beginTransaction();
+                $cur = $pdo->prepare('SELECT status, items FROM orders WHERE id = ? FOR UPDATE');
+                $cur->execute([$id]);
+                $row = $cur->fetch();
+                if (!$row) {
+                    throw new RuntimeException('Order #' . $id . ' was not found.');
+                }
+                if ($row['status'] !== $status) {
+                    $up = $pdo->prepare('UPDATE orders SET status = ?, status_updated_at = NOW() WHERE id = ?');
+                    $up->execute([$status, $id]);
+                    if ($status === 'cancelled') {
+                        /* restock only on the transition INTO cancelled (no double refunds) */
+                        foreach (json_decode($row['items'], true) ?: [] as $it) {
+                            $rs = $pdo->prepare('UPDATE guitars SET stock = stock + ? WHERE id = ?');
+                            $rs->execute([(int)($it['qty'] ?? 0), (int)($it['id'] ?? 0)]);
+                        }
+                    }
+                }
+                $pdo->commit();
+                if ($status === 'confirmed') {
+                    flash('success', 'Order #' . $id . ' accepted ✔ — marked Confirmed.');
+                } elseif ($status === 'cancelled') {
+                    flash('error', 'Order #' . $id . ' rejected ✖ — marked Cancelled, items returned to stock.');
+                } else {
+                    flash('success', 'Order #' . $id . ' marked ' . ucfirst($status) . '.');
+                }
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                flash('error', 'Could not update order #' . $id . '. Please try again.');
             }
         }
         redirect('admin.php?tab=orders');
