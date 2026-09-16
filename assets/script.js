@@ -51,6 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
   safe("toast",       initToast);
   safe("add-to-cart", initAddToCart);   /* NEW */
   safe("edit-profile-toggle", initEditProfileToggle);   /* Patch 7: account.php EDIT PROFILE */
+  safe("flash-dismiss", initFlashDismiss);   /* green success/error bar fades after 4s */
 });
 
 
@@ -139,7 +140,23 @@ function initBestsellers() {
 }
 
 
-/* 
+/* ---------- FLASH MESSAGES (auto-dismiss after 4s, click to dismiss early) */
+function initFlashDismiss() {
+  $$(".flash").forEach(el => {
+    let gone = false;
+    const hide = () => {
+      if (gone) return;
+      gone = true;
+      el.classList.add("flash-hide");
+      setTimeout(() => el.remove(), 450);   /* let the fade finish, then clean up */
+    };
+    const timer = setTimeout(hide, 4000);
+    el.addEventListener("click", hide);
+  });
+}
+
+
+/*
    3. CARD TEMPLATE
     */
 function cardHTML(p) {

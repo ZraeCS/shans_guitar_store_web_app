@@ -1102,6 +1102,14 @@ h2 {
   letter-spacing: 0.02em;
   box-shadow: 0 14px 34px -14px #000;
   animation: flashIn 0.35s ease;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  cursor: pointer;              /* click to dismiss early */
+}
+
+.flash.flash-hide {
+  opacity: 0;
+  transform: translate(-50%, -12px);
+  pointer-events: none;
 }
 
 @keyframes flashIn {
