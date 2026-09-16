@@ -124,3 +124,9 @@ Session cookie flags (`httponly`, `samesite=Lax`) · login open-redirect closed 
 1. Import `schema.sql` or recreate the four tables (`users`, `guitars`, `orders`, `admins` — see phpMyAdmin structure).
 2. Apply the two batch migrations above (`status_updated_at`, `payment_method`).
 3. Seed guitars via Admin → Add Guitar (or restore a `mysqldump` backup from `C:\xampp\`).
+
+---
+
+## Redirect stubs for old URLs (2026-09-16)
+
+After the reorganization, the seven old root-level addresses (`login.php`, `register.php`, `logout.php`, `admin.php`, `account.php`, `cart.php`, `checkout.php`) now issue permanent 301 redirects to their new homes (`auth/…`, `admin/admin.php`, `customer/…`) so old bookmarks and external links never 404.
