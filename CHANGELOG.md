@@ -130,3 +130,7 @@ Session cookie flags (`httponly`, `samesite=Lax`) · login open-redirect closed 
 ## Redirect stubs for old URLs (2026-09-16)
 
 After the reorganization, the seven old root-level addresses (`login.php`, `register.php`, `logout.php`, `admin.php`, `account.php`, `cart.php`, `checkout.php`) now issue permanent 301 redirects to their new homes (`auth/…`, `admin/admin.php`, `customer/…`) so old bookmarks and external links never 404.
+
+## Fix: add-to-cart after reorganization (2026-09-16)
+
+`script.js` still pointed its add-to-cart links/AJAX at the pre-reorganization root `cart.php`; the 301 stub consumed the query string, so the cart page opened empty. Links now target `customer/cart.php` directly, the seven stubs forward query strings, and cart thumbnails resolve via `img_src()`.

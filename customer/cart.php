@@ -117,7 +117,7 @@ require __DIR__ . '/../includes/header.php';
             <?php foreach ($rows as $r): $p = $r['p']; ?>
               <article class="cart-item">
                 <div class="cart-media">
-                  <img src="<?= e($p['image']) ?>" alt="<?= e($p['name']) ?>">
+                  <img src="<?= e(img_src((string)$p['image'])) ?>" alt="<?= e($p['name']) ?>">
                 </div>
                 <div class="cart-info">
                   <p class="product-type"><?= e($p['category']) ?> · <?= e($p['brand']) ?></p>

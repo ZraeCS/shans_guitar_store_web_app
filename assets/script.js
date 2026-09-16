@@ -156,7 +156,7 @@ function cardHTML(p) {
         <p class="price">${peso(p.price)}</p>
         <div class="card-actions">
           <button class="btn-view" type="button" data-view="${p.id}">VIEW</button>
-          <a class="btn-cart" href="${BASE}/cart.php?action=add&amp;id=${p.id}" data-add-cart="${p.id}">ADD TO CART</a>
+          <a class="btn-cart" href="${BASE}/customer/cart.php?action=add&amp;id=${p.id}" data-add-cart="${p.id}">ADD TO CART</a>
         </div>
       </div>
     </article>`;
@@ -402,7 +402,7 @@ function initAddToCart() {
 async function addToCart(id, btn = null) {
   if (btn) btn.classList.add("is-loading");
   try {
-    const res  = await fetch(`${BASE}/cart.php?action=add&id=${id}&ajax=1`, {
+    const res  = await fetch(`${BASE}/customer/cart.php?action=add&id=${id}&ajax=1`, {
       headers: { "X-Requested-With": "fetch" }
     });
     const data = await res.json();
@@ -418,7 +418,7 @@ async function addToCart(id, btn = null) {
     }
   } catch (err) {
     /* fetch/JSON failed → fall back to normal navigation (still records it) */
-    window.location.href = `${BASE}/cart.php?action=add&id=${id}`;
+    window.location.href = `${BASE}/customer/cart.php?action=add&id=${id}`;
   } finally {
     if (btn) btn.classList.remove("is-loading");
   }
