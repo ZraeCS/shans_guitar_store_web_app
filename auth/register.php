@@ -1,8 +1,8 @@
 
 <?php
-require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/../database/config.php';
 
-if (is_logged_in()) redirect('account.php');
+if (is_logged_in()) redirect('customer/account.php');
 
 $errors = [];
 $name = $email = $phone = '';
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_name']  = $name;
                 $_SESSION['user_email'] = $email;
                 flash('success', 'Account created — welcome to Shan\'s Guitar, ' . explode(' ', $name)[0] . '!');
-                redirect('account.php');
+                redirect('customer/account.php');
             }
         }
     }
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $pageTitle = 'Sign Up';
 $activeNav = '';
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="auth-page">
@@ -91,6 +91,6 @@ require __DIR__ . '/includes/header.php';
   </div>
 </section>
 
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>
 
 

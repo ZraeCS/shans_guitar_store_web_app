@@ -1,8 +1,8 @@
 
 <?php
-require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/../database/config.php';
 
-if (is_logged_in()) redirect('account.php');
+if (is_logged_in()) redirect('customer/account.php');
 
 $errors = [];
 $email  = '';
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $pageTitle = 'Log In';
 $activeNav = '';
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="auth-page">
@@ -80,6 +80,6 @@ require __DIR__ . '/includes/header.php';
   </div>
 </section>
 
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>
 
 

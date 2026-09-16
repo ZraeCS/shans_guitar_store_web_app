@@ -13,6 +13,22 @@ define('DB_PASS', '');              // XAMPP default password is empty
 define('SITE_NAME', "Shan's Guitar");
 define('SITE_CURRENCY', '₱');
 
+/* ---------- PROJECT URL ROOT ----------
+   Pages live in subfolders (admin/, auth/, customer/) but assets, links and
+   redirects must always resolve from the project root. Computed from where
+   this file sits on disk relative to the web server's document root. */
+$sgRoot = str_replace('\\', '/', realpath(__DIR__ . '/..'));
+$sgDoc  = str_replace('\\', '/', rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/\\'));
+define('BASE_URL', ($sgDoc !== '' && strpos($sgRoot, $sgDoc) === 0)
+    ? rtrim(substr($sgRoot, strlen($sgDoc)), '/')
+    : '');   /* fallback for CLI / unusual hosting: relative URLs keep working */
+
+/* resolve a stored image/upload path against the project root (for <img src>) */
+function img_src(string $path): string {
+    if ($path === '' || preg_match('#^(https?://|/)#', $path)) return $path;
+    return BASE_URL . '/' . ltrim($path, '/');
+}
+
 /* ----------  SESSION ---------- */
 if (session_status() === PHP_SESSION_NONE) {
     session_name('sg_session');
@@ -73,7 +89,7 @@ function current_user(): ?array {
 function require_login(): void {
     if (!is_logged_in()) {
         flash('info', 'Please log in to continue.');
-        redirect('login.php?next=' . urlencode($_SERVER['REQUEST_URI']));
+        redirect('auth/login.php?next=' . urlencode($_SERVER['REQUEST_URI']));
     }
 }
 
@@ -131,6 +147,11 @@ function peso($n): string {
 }
 
 function redirect(string $url): void {
+    /* pages live in subfolders — a bare relative target ("account.php") must
+       be resolved against the project root, never the current folder */
+    if ($url !== '' && !preg_match('#^(https?://|/)#', $url)) {
+        $url = BASE_URL . '/' . $url;
+    }
     header('Location: ' . $url);
     exit;
 }

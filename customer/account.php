@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/../database/config.php';
 
 require_login();
  $user = current_user();
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('error', 'Could not cancel the order. Please try again.');
             }
         }
-        redirect('account.php#orders');
+        redirect('customer/account.php#orders');
     }
 
     csrf_check();
@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['user_email'] = $email;
 
         flash('success', 'Profile updated.');
-        redirect('account.php');
+        redirect('customer/account.php');
     }
 }
 
@@ -118,7 +118,7 @@ if ($pdo) {
 
  $pageTitle = 'My Account';
  $activeNav = '';
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="account-page section-pad">
@@ -141,7 +141,7 @@ require __DIR__ . '/includes/header.php';
     </div>
 
     <div class="profile-hero-actions">
-      <a class="btn btn-gold" href="shop.php">CONTINUE SHOPPING</a>
+      <a class="btn btn-gold" href="<?= e($base) ?>/shop.php">CONTINUE SHOPPING</a>
       <a class="btn btn-outline" href="cart.php">VIEW CART (<?= cart_count() ?>)</a>
     </div>
   </div>
@@ -172,7 +172,7 @@ require __DIR__ . '/includes/header.php';
       <a href="#profile" class="active">Profile details</a>
       <a href="#orders">Order history</a>
       <a href="cart.php">Your cart</a>
-      <a href="logout.php" class="danger">Log out</a>
+      <a href="<?= e($base) ?>/auth/logout.php" class="danger">Log out</a>
     </aside>
 
     <div class="account-main">
@@ -246,7 +246,7 @@ require __DIR__ . '/includes/header.php';
           <div class="empty-state">
             <h3>No orders yet</h3>
             <p>When you check out, your orders will appear here.</p>
-            <a class="btn btn-gold" href="shop.php" style="margin-top:22px">START SHOPPING</a>
+            <a class="btn btn-gold" href="<?= e($base) ?>/shop.php" style="margin-top:22px">START SHOPPING</a>
           </div>
 
         <?php else: ?>
@@ -313,4 +313,4 @@ require __DIR__ . '/includes/header.php';
   </div>
 </section>
 
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

@@ -1,7 +1,7 @@
 
 <?php
-require_once __DIR__ . '/includes/config.php';
-require_once __DIR__ . '/includes/products.php';
+require_once __DIR__ . '/../database/config.php';
+require_once __DIR__ . '/../includes/products.php';
 
 /* ---- build cart rows (server-side) ---- */
 $rows  = [];
@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($placed) {
                 cart_clear();
                 flash('success', 'Thank you! Your order has been placed - we\'ll contact you shortly to confirm.');
-                redirect('account.php');
+                redirect('customer/account.php');
             }
         }
     }
@@ -111,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $pageTitle = 'Checkout';
 $activeNav = 'shop';
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="checkout-page section-pad">
@@ -206,6 +206,6 @@ require __DIR__ . '/includes/header.php';
   });
 </script>
 
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>
 
 

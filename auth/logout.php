@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/../database/config.php';
 
 $_SESSION = [];
 if (ini_get('session.use_cookies')) {

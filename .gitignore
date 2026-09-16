@@ -1,0 +1,14 @@
+# OS junk
+Thumbs.db
+.DS_Store
+
+# Editor / IDE folders
+.vscode/
+.idea/
+
+# Logs and crash dumps
+*.log
+*.dmp
+
+# Local backup files
+*.bak

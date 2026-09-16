@@ -4,6 +4,30 @@ Running record of feature batches and fixes. Commits are on `main`; newest batch
 
 ---
 
+## Project reorganization (2026-09-16)
+
+**Goal:** match the rubric's "organized structure" expectation — pages grouped by role, database files visible.
+
+- **New structure:**
+  ```
+  admin/       admin.php
+  auth/        login.php, register.php, logout.php
+  customer/    account.php, cart.php, checkout.php
+  database/    config.php (credentials + helpers), schema.sql (full table export)
+  includes/    header.php, footer.php, products.php (shared templates + catalogue)
+  assets/, images/, uploads/   unchanged
+  root         index.php, shop.php, about.php, brands.php
+  ```
+- **How nothing broke:** every file was moved with `git mv` (history preserved), then all references rewritten:
+  - `BASE_URL` constant (computed in `database/config.php` from the web root) — used by `redirect()`, `img_src()` and all header/footer links, so pages work from any folder depth
+  - all `require`s became `__DIR__`-relative
+  - admin redirects target `admin/admin.php`; auth redirects target `auth/…`; customer redirects target `customer/…`
+  - script.js cards/quick-view/AJAX use `window.SG_BASE` (injected from header) for cart links
+- **Also:** added `.gitignore` (OS junk, editor folders, logs, dumps) and `database/schema.sql` (mysqldump of the 4 tables).
+- **Full regression tested:** all pages 200 from new locations; register → login → cart → checkout → cancel (stock restored) → admin login → orders tab — every flow verified through the new paths.
+
+---
+
 ## Batch D — Richer product fields (2026-09-16)
 
 **Goal:** admin controls "Mark as NEW", a real Item Code (SG-0016 style) and Availability per guitar.

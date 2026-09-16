@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/../database/config.php';
 
 /* ============================================================
    SHAN'S GUITAR — Admin Panel
@@ -12,7 +12,7 @@ require_once __DIR__ . '/includes/config.php';
    ============================================================ */
 
 define('LOW_STOCK_THRESHOLD', 3);
-define('UPLOAD_DIR',  __DIR__ . '/images/products/');
+define('UPLOAD_DIR',  __DIR__ . '/../images/products/');
 define('UPLOAD_PATH', 'images/products/');
 
 /* ---------- ADMIN AUTH ---------- */
@@ -175,21 +175,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['admin_name']  = $adminRow['name'];
             $_SESSION['admin_email'] = $adminRow['email'];
             flash('success', 'Welcome back, ' . explode(' ', $adminRow['name'])[0] . '!');
-            redirect('admin.php');
+            redirect('admin/admin.php');
         }
         flash('error', 'Incorrect email or password.');
-        redirect('admin.php');
+        redirect('admin/admin.php');
     }
 
     /* Everything below requires an authenticated admin */
-    if (!admin_logged_in()) redirect('admin.php');
+    if (!admin_logged_in()) redirect('admin/admin.php');
 
     /* ---- Logout ---- */
     if ($action === 'admin_logout') {
         csrf_check();
         unset($_SESSION['admin_id'], $_SESSION['admin_name'], $_SESSION['admin_email']);
         flash('info', "You've been logged out.");
-        redirect('admin.php');
+        redirect('admin/admin.php');
     }
 
     /* ---- Add / edit guitar ---- */
@@ -213,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($name === '') {
             flash('error', 'Guitar name is required.');
-            redirect('admin.php?tab=guitars');
+            redirect('admin/admin.php?tab=guitars');
         }
 
         [$upPath, $upError] = handle_image_upload($_FILES['image'] ?? null);
@@ -244,7 +244,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$name, $brand, $category, $price, $stock, $image, $description, $bestseller, $new, $itemCode, $availability]);
             flash($notice !== '' ? 'error' : 'success', $notice !== '' ? $notice : '"' . $name . '" was added.');
         }
-        redirect('admin.php?tab=guitars');
+        redirect('admin/admin.php?tab=guitars');
     }
 
     /* ---- Delete guitar ---- */
@@ -254,7 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare('DELETE FROM guitars WHERE id = ?');
         $stmt->execute([$id]);
         flash('success', 'Guitar removed.');
-        redirect('admin.php?tab=guitars');
+        redirect('admin/admin.php?tab=guitars');
     }
 
     /* ---- Adjust stock (+ / -) ---- */
@@ -265,7 +265,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare('UPDATE guitars SET stock = GREATEST(0, stock + ?) WHERE id = ?');
         $stmt->execute([$delta, $id]);
         $qs = !empty($_POST['q']) ? '&q=' . urlencode($_POST['q']) : '';
-        redirect('admin.php?tab=guitars' . $qs);
+        redirect('admin/admin.php?tab=guitars' . $qs);
     }
 
     /* ---- Update order status (also used by Accept / Reject buttons).
@@ -309,7 +309,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('error', 'Could not update order #' . $id . '. Please try again.');
             }
         }
-        redirect('admin.php?tab=orders');
+        redirect('admin/admin.php?tab=orders');
     }
 
     /* ---- Change admin password ---- */
@@ -331,7 +331,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$hash, $adminId]);
             flash('success', 'Password updated.');
         }
-        redirect('admin.php?tab=settings');
+        redirect('admin/admin.php?tab=settings');
     }
 }
 
@@ -349,7 +349,7 @@ if (!admin_logged_in()) {
     <title>Admin Login — Shan's Guitar</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;1,500&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/admin.css?v=<?= filemtime(__DIR__ . '/assets/admin.css') ?>">
+    <link rel="stylesheet" href="../assets/admin.css?v=<?= filemtime(__DIR__ . '/../assets/admin.css') ?>">
     </head>
     <body class="admin-body">
       <?php if ($flash): ?>
@@ -372,7 +372,7 @@ if (!admin_logged_in()) {
             </label>
             <button class="btn btn-gold full" type="submit">LOG IN</button>
           </form>
-          <div class="admin-login-note">This area is restricted to Shan's Guitar staff. Customers should head back to the <a href="index.php" style="color:var(--gold); font-weight:700;">shop</a>.</div>
+          <div class="admin-login-note">This area is restricted to Shan's Guitar staff. Customers should head back to the <a href="../index.php" style="color:var(--gold); font-weight:700;">shop</a>.</div>
         </div>
       </div>
       <script>
@@ -461,7 +461,7 @@ if ($tab === 'orders') {
 <title><?= e($pageTitle) ?> — Admin · Shan's Guitar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;1,500&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/admin.css?v=<?= filemtime(__DIR__ . '/assets/admin.css') ?>">
+<link rel="stylesheet" href="../assets/admin.css?v=<?= filemtime(__DIR__ . '/../assets/admin.css') ?>">
 <style>
   /* Accept / Reject buttons */
   .btn-accept {
@@ -594,7 +594,7 @@ if ($tab === 'orders') {
               <?php else: foreach ($lowStockList as $g): ?>
                 <tr>
                   <td class="cell-product">
-                    <div class="cell-thumb"><?php if ($g['image']): ?><img src="<?= e($g['image']) ?>" alt=""><?php endif; ?></div>
+                    <div class="cell-thumb"><?php if ($g['image']): ?><img src="<?= e(img_src((string)$g['image'])) ?>" alt=""><?php endif; ?></div>
                     <div><strong><?= e($g['name']) ?></strong><span><?= e($g['category']) ?></span></div>
                   </td>
                   <td><?= e($g['brand']) ?></td>
@@ -631,7 +631,7 @@ if ($tab === 'orders') {
               <?php else: foreach ($guitars as $g): ?>
                 <tr>
                   <td class="cell-product">
-                    <div class="cell-thumb"><?php if ($g['image']): ?><img src="<?= e($g['image']) ?>" alt=""><?php endif; ?></div>
+                    <div class="cell-thumb"><?php if ($g['image']): ?><img src="<?= e(img_src((string)$g['image'])) ?>" alt=""><?php endif; ?></div>
                     <div><strong><?= e($g['name']) ?></strong><span><?= e($g['item_code'] ?? ('SG-' . str_pad((string)$g['id'], 4, '0', STR_PAD_LEFT))) ?><?= $g['is_new'] ? ' · NEW' : '' ?><?= $g['is_bestseller'] ? ' · Bestseller' : '' ?></span></div>
                   </td>
                   <td><?= e($g['brand']) ?></td>
@@ -700,7 +700,7 @@ if ($tab === 'orders') {
 
               <?php if ($formMode === 'edit' && !empty($editGuitar['image'])): ?>
                 <div class="current-image">
-                  <img src="<?= e($editGuitar['image']) ?>" alt="">
+                  <img src="<?= e(img_src((string)$editGuitar['image'])) ?>" alt="">
                   <span>Current image — upload a new one below to replace it.</span>
                 </div>
               <?php endif; ?>

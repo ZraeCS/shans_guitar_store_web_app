@@ -1,7 +1,7 @@
 <?php
 /* includes/header.php — shared <head> + header/nav for every page.
    Set $pageTitle and $activeNav BEFORE including this file. */
-if (!defined('SITE_NAME')) { require_once __DIR__ . '/config.php'; }
+if (!defined('SITE_NAME')) { require_once __DIR__ . '/../database/config.php'; }
 if (!isset($PRODUCTS))     { require_once __DIR__ . '/products.php'; }   /* NEW — so every page can feed script.js */
 
  $pageTitle   = $pageTitle   ?? SITE_NAME;
@@ -10,7 +10,7 @@ if (!isset($PRODUCTS))     { require_once __DIR__ . '/products.php'; }   /* NEW 
  $user        = is_logged_in() ? current_user() : null;
  $cartTotal   = cart_count();
  $flashMsg    = take_flash();
- $base        = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+ $base        = defined('BASE_URL') ? BASE_URL : rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -75,5 +75,6 @@ if (!isset($PRODUCTS))     { require_once __DIR__ . '/products.php'; }   /* NEW 
 
 <!-- NEW: product data for script.js (shop grid, bestsellers, quick-view) -->
 <script>
+window.SG_BASE = "<?= e($base) ?>";
 window.SG_PRODUCTS = <?= json_encode($PRODUCTS, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>

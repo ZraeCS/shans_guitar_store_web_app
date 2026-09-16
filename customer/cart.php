@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/includes/config.php';
-require_once __DIR__ . '/includes/products.php';
+require_once __DIR__ . '/../database/config.php';
+require_once __DIR__ . '/../includes/products.php';
 
 /* ---- handle add / remove / update actions ---- */
  $action = $_GET['action'] ?? '';
@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action !== '' && $id) {
         if ($isAjax) cart_json(true, 'Item removed from your cart.');
         flash('info', 'Item removed from your cart.');
     }
-    redirect('cart.php');   /* non-AJAX fallback lands here with the item already recorded */
+    redirect('customer/cart.php');   /* non-AJAX fallback lands here with the item already recorded */
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         cart_set($pid, $qty);
     }
     flash($capped ? 'error' : 'success', $capped ? 'Quantity capped: ' . implode(', ', $capped) . '.' : 'Cart updated.');
-    redirect('cart.php');
+    redirect('customer/cart.php');
 }
 
 /* ---- build cart rows (reads whatever was recorded from the shop) ---- */
@@ -79,7 +79,7 @@ foreach (cart() as $pid => $qty) {
 
  $pageTitle = 'Your Cart';
  $activeNav = 'shop';
-require __DIR__ . '/includes/header.php';
+require __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="account-page section-pad">
@@ -94,10 +94,10 @@ require __DIR__ . '/includes/header.php';
       <?php if (is_logged_in()): ?>
         <a href="account.php">Order history</a>
         <a href="cart.php" class="active">Your cart</a>
-        <a href="logout.php" class="danger">Log out</a>
+        <a href="<?= e($base) ?>/auth/logout.php" class="danger">Log out</a>
       <?php else: ?>
-        <a href="login.php">Log in</a>
-        <a href="register.php">Create account</a>
+        <a href="<?= e($base) ?>/auth/login.php">Log in</a>
+        <a href="<?= e($base) ?>/auth/register.php">Create account</a>
       <?php endif; ?>
     </aside>
 
@@ -106,7 +106,7 @@ require __DIR__ . '/includes/header.php';
         <div class="empty-state">
           <h3>Your cart is empty</h3>
           <p>Looks like you haven't added any guitars yet.</p>
-          <a class="btn btn-gold" href="shop.php" style="margin-top:22px">BROWSE THE SHOP</a>
+          <a class="btn btn-gold" href="<?= e($base) ?>/shop.php" style="margin-top:22px">BROWSE THE SHOP</a>
         </div>
       <?php else: ?>
 
@@ -135,7 +135,7 @@ require __DIR__ . '/includes/header.php';
             <?php endforeach; ?>
 
             <div class="cart-row-actions">
-              <a class="btn btn-outline-dark" href="shop.php">CONTINUE SHOPPING</a>
+              <a class="btn btn-outline-dark" href="<?= e($base) ?>/shop.php">CONTINUE SHOPPING</a>
               <button class="btn btn-outline-dark" type="submit">UPDATE QUANTITIES</button>
             </div>
           </div>
@@ -156,4 +156,4 @@ require __DIR__ . '/includes/header.php';
   </div>
 </section>
 
-<?php require __DIR__ . '/includes/footer.php'; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

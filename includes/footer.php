@@ -2,8 +2,8 @@
 /* includes/footer.php — shared footer + JS for every page.
    (Patched 2026-09: the second window.SG_PRODUCTS injection was removed —
    header.php already injects it safely with JSON_HEX_TAG flags.) */
-if (!defined('SITE_NAME')) { require_once __DIR__ . '/config.php'; }
- $base = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+if (!defined('SITE_NAME')) { require_once __DIR__ . '/../database/config.php'; }
+ $base = defined('BASE_URL') ? BASE_URL : rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 ?>
 <footer id="contact" class="site-footer">
   <div class="footer-brand">
