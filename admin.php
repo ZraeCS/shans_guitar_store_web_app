@@ -203,6 +203,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stock       = max(0, (int)($_POST['stock'] ?? 0));
         $description = trim($_POST['description'] ?? '');
         $bestseller  = isset($_POST['is_bestseller']) ? 1 : 0;
+        $new         = isset($_POST['is_new']) ? 1 : 0;
+        /* item code: admin-typable but sanitized — caps, digits and dashes only */
+        $itemCode    = strtoupper(trim($_POST['item_code'] ?? ''));
+        if ($itemCode !== '' && !preg_match('/^[A-Z0-9\-]{1,20}$/', $itemCode)) $itemCode = '';
+        $availInput  = $_POST['availability'] ?? 'in-store';
+        $availability= in_array($availInput, ['in-store', 'online', 'pre-order', 'coming-soon'], true) ? $availInput : 'in-store';
         $imageUrl    = trim($_POST['image_url'] ?? '');
 
         if ($name === '') {
@@ -230,12 +236,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$id]);
                 $image = (string)$stmt->fetchColumn();
             }
-            $stmt = $pdo->prepare('UPDATE guitars SET name=?, brand=?, category=?, price=?, stock=?, image=?, description=?, is_bestseller=? WHERE id=?');
-            $stmt->execute([$name, $brand, $category, $price, $stock, $image, $description, $bestseller, $id]);
+            $stmt = $pdo->prepare('UPDATE guitars SET name=?, brand=?, category=?, price=?, stock=?, image=?, description=?, is_bestseller=?, is_new=?, item_code=?, availability=? WHERE id=?');
+            $stmt->execute([$name, $brand, $category, $price, $stock, $image, $description, $bestseller, $new, $itemCode, $availability, $id]);
             flash($notice !== '' ? 'error' : 'success', $notice !== '' ? $notice : '"' . $name . '" was updated.');
         } else {
-            $stmt = $pdo->prepare('INSERT INTO guitars (name, brand, category, price, stock, image, description, is_bestseller) VALUES (?,?,?,?,?,?,?,?)');
-            $stmt->execute([$name, $brand, $category, $price, $stock, $image, $description, $bestseller]);
+            $stmt = $pdo->prepare('INSERT INTO guitars (name, brand, category, price, stock, image, description, is_bestseller, is_new, item_code, availability) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+            $stmt->execute([$name, $brand, $category, $price, $stock, $image, $description, $bestseller, $new, $itemCode, $availability]);
             flash($notice !== '' ? 'error' : 'success', $notice !== '' ? $notice : '"' . $name . '" was added.');
         }
         redirect('admin.php?tab=guitars');
@@ -626,7 +632,7 @@ if ($tab === 'orders') {
                 <tr>
                   <td class="cell-product">
                     <div class="cell-thumb"><?php if ($g['image']): ?><img src="<?= e($g['image']) ?>" alt=""><?php endif; ?></div>
-                    <div><strong><?= e($g['name']) ?></strong><span><?= $g['is_bestseller'] ? 'Bestseller' : '' ?></span></div>
+                    <div><strong><?= e($g['name']) ?></strong><span><?= e($g['item_code'] ?? ('SG-' . str_pad((string)$g['id'], 4, '0', STR_PAD_LEFT))) ?><?= $g['is_new'] ? ' · NEW' : '' ?><?= $g['is_bestseller'] ? ' · Bestseller' : '' ?></span></div>
                   </td>
                   <td><?= e($g['brand']) ?></td>
                   <td><?= e($g['category']) ?></td>
@@ -725,6 +731,19 @@ if ($tab === 'orders') {
                 </label>
               </div>
 
+              <div class="form-grid-2">
+                <label>Item code (shown on the product page)
+                  <input type="text" name="item_code" maxlength="20" value="<?= e($editGuitar['item_code'] ?? '') ?>" placeholder="leave blank → auto SG-000N">
+                </label>
+                <label>Availability
+                  <select name="availability">
+                    <?php foreach (['in-store' => 'In store now', 'online' => 'Online only', 'pre-order' => 'Pre-order', 'coming-soon' => 'Coming soon'] as $avKey => $avLabel): ?>
+                      <option value="<?= e($avKey) ?>" <?= (($editGuitar['availability'] ?? 'in-store') === $avKey) ? 'selected' : '' ?>><?= e($avLabel) ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                </label>
+              </div>
+
               <label>Image upload
                 <input type="file" name="image" accept=".jpg,.jpeg,.png,.webp">
               </label>
@@ -736,6 +755,10 @@ if ($tab === 'orders') {
                 <textarea name="description" rows="4" placeholder="Short description shown on the product page…"><?= e($editGuitar['description'] ?? '') ?></textarea>
               </label>
 
+              <label class="checkbox-row" style="flex-direction:row;">
+                <input type="checkbox" name="is_new" <?= !empty($editGuitar['is_new']) ? 'checked' : '' ?>>
+                Mark as NEW (shows a "New" badge on the card)
+              </label>
               <label class="checkbox-row" style="flex-direction:row;">
                 <input type="checkbox" name="is_bestseller" <?= !empty($editGuitar['is_bestseller']) ? 'checked' : '' ?>>
                 Mark as bestseller

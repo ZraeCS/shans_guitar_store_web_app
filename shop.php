@@ -69,6 +69,7 @@ foreach ($PRODUCTS as $p) {
         <label><input type="checkbox" class="avail" value="in-store"> In Store now</label>
         <label><input type="checkbox" class="avail" value="online"> Online Only</label>
         <label><input type="checkbox" class="avail" value="pre-order"> Pre-Order</label>
+        <label><input type="checkbox" class="avail" value="coming-soon"> Coming Soon</label>
       </div>
 
       <button class="btn btn-outline-dark full" id="clearFilters">CLEAR FILTERS</button>

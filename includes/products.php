@@ -48,6 +48,11 @@ $SEED_PRODUCTS = [
    whenever the guitars table has data. */
 $PRODUCTS = $SEED_PRODUCTS;
 
+/* the seed rows predate item codes — fill SG-0001… in automatically */
+foreach ($PRODUCTS as $i => $sp) {
+    $PRODUCTS[$i]['item_code'] = 'SG-' . str_pad((string)$sp['id'], 4, '0', STR_PAD_LEFT);
+}
+
 /* ---------- NEW: read the guitars table ---------- */
 function load_products_from_db(): array {
     if (!function_exists('db')) return [];        // safety if ever included standalone
@@ -77,13 +82,19 @@ function load_products_from_db(): array {
             'category'     => $cat,
             'price'        => (float)$g['price'],
             'stock'        => $stock,
-            /* the admin's "Mark as bestseller" checkbox now controls the
-               homepage carousel and the card badge */
-            'badge'        => !empty($g['is_bestseller']) ? 'Bestseller' : '',
+            /* badges: admin's NEW flag wins over Bestseller */
+            'badge'        => !empty($g['is_new']) ? 'New'
+                            : (!empty($g['is_bestseller']) ? 'Bestseller' : ''),
             'featured'     => !empty($g['is_bestseller']),
-            /* no availability column in the DB yet — derive it from stock so
-               the shop's availability filter keeps working */
-            'availability' => $stock > 0 ? 'in-store' : 'pre-order',
+            /* item code from the admin form; SG-000N fallback */
+            'item_code'    => trim((string)($g['item_code'] ?? '')) !== ''
+                            ? (string)$g['item_code']
+                            : 'SG-' . str_pad((string)$g['id'], 4, '0', STR_PAD_LEFT),
+            /* availability now comes from the admin's enum column; the stock
+               derivation is the fallback for unexpected values */
+            'availability' => in_array($g['availability'] ?? '', ['in-store', 'online', 'pre-order', 'coming-soon'], true)
+                            ? $g['availability']
+                            : ($stock > 0 ? 'in-store' : 'pre-order'),
             /* empty image → path that 404s → your existing dashed
                "GUITAR PNG" fallback box takes over (script.js) */
             'image'        => trim((string)($g['image'] ?? '')) !== ''

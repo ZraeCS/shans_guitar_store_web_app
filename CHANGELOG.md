@@ -4,6 +4,29 @@ Running record of feature batches and fixes. Commits are on `main`; newest batch
 
 ---
 
+## Batch D — Richer product fields (2026-09-16)
+
+**Goal:** admin controls "Mark as NEW", a real Item Code (SG-0016 style) and Availability per guitar.
+
+- **Database:** `guitars` gains three columns (keep this SQL for other machines):
+  ```sql
+  ALTER TABLE guitars
+    ADD COLUMN is_new TINYINT(1) NOT NULL DEFAULT 0 AFTER is_bestseller,
+    ADD COLUMN item_code VARCHAR(20) NULL AFTER is_new,
+    ADD COLUMN availability ENUM('in-store','online','pre-order','coming-soon') NOT NULL DEFAULT 'in-store' AFTER item_code;
+  UPDATE guitars SET item_code = CONCAT('SG-', LPAD(id, 4, '0')) WHERE item_code IS NULL;
+  ```
+- **admin.php:** guitar form gains **Mark as NEW** checkbox, **Item code** input and **Availability** select; the guitars table now shows each product's item code + NEW/Bestseller flags. Save handler whitelists everything:
+  - `item_code` sanitized to `[A-Z0-9-]` (max 20) — invalid input stores empty and the shop falls back to the auto `SG-000N` code
+  - `availability` strict-whitelisted against the enum — tampered values fall back to `in-store`
+- **includes/products.php:** loader exposes `is_new` (badge "New" wins over "Bestseller"), `item_code` and the DB availability; seed products get auto item codes when the DB is down.
+- **shop.php / script.js:** availability filter gains a **Coming Soon** option; quick-view now shows the *real* admin-set item code instead of the old fake `SG-000id`.
+- Item codes backfilled for all 15 existing guitars (`SG-0002`…; id 1 was an old test row).
+
+**Tested:** E2E admin save (NEW + `SG-TEST99` + coming-soon), injection string rejected to empty, tampered availability fell back to `in-store`, shop JSON renders badge/code/availability, restore verified.
+
+---
+
 ## Batch P — Payment method selection (2026-09-16)
 
 **Goal:** make checkout's payment explicit and selectable, ready for GCash later. No online payment is taken yet.

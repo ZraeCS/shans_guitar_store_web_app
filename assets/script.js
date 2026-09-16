@@ -15,9 +15,10 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 const AVAIL_LABEL = {
-  "in-store":  "In store now",
-  "online":    "Online only",
-  "pre-order": "Pre-order"
+  "in-store":    "In store now",
+  "online":      "Online only",
+  "pre-order":   "Pre-order",
+  "coming-soon": "Coming soon"
 };
 
 function safe(name, fn) {
@@ -325,7 +326,7 @@ function initModal() {
       <li><span>Brand</span><strong>${esc(p.brand)}</strong></li>
       <li><span>Category</span><strong>${esc(p.category)}</strong></li>
       <li><span>Availability</span><strong>${AVAIL_LABEL[p.availability] || "—"}</strong></li>
-      <li><span>Item code</span><strong>SG-${String(p.id).padStart(4, "0")}</strong></li>`;
+      <li><span>Item code</span><strong>${esc(p.item_code || "SG-" + String(p.id).padStart(4, "0"))}</strong></li>`;
 
     modal.hidden = false;
     document.body.classList.add("no-scroll");
