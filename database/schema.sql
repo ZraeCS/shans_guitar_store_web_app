@@ -72,7 +72,10 @@ CREATE TABLE `orders` (
   `items` text NOT NULL,
   `total` int(11) NOT NULL DEFAULT 0,
   `fulfillment` varchar(20) NOT NULL DEFAULT 'delivery',
-  `payment_method` enum('cod','pickup_pay') NOT NULL DEFAULT 'cod',
+  `payment_method` enum('cod','pickup_pay','gcash') NOT NULL DEFAULT 'cod',
+  `payment_ref` varchar(40) DEFAULT NULL,
+  `payment_verified_at` datetime DEFAULT NULL,
+  `payment_verified_by` int(10) unsigned DEFAULT NULL,
   `fullname` varchar(120) NOT NULL,
   `phone` varchar(40) NOT NULL,
   `address` varchar(255) NOT NULL,
@@ -83,7 +86,9 @@ CREATE TABLE `orders` (
   `created_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_user` (`user_id`),
-  CONSTRAINT `fk_orders_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE
+  KEY `fk_orders_verified_by` (`payment_verified_by`),
+  CONSTRAINT `fk_orders_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_orders_verified_by` FOREIGN KEY (`payment_verified_by`) REFERENCES `admins` (`id`) ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

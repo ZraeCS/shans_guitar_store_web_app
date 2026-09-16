@@ -28,6 +28,7 @@ $fullname = $user['name'] ?? '';
 $phone = $address = $city = $notes = '';
 $fulfillment = 'delivery';
 $payment = 'cod';
+$paymentRef = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
@@ -38,9 +39,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $fulfillment = $_POST['fulfillment'] ?? 'delivery';
     /* payment method: strict server-side whitelist - the browser only
        suggests; anything unexpected (tampered/missing/array) falls back */
-    $payment = in_array($_POST['payment_method'] ?? '', ['cod', 'pickup_pay'], true)
+    $payment = in_array($_POST['payment_method'] ?? '', ['cod', 'pickup_pay', 'gcash'], true)
              ? $_POST['payment_method'] : 'cod';
     $notes       = trim($_POST['notes'] ?? '');
+
+    /* GCash reference number: this is only ever a CLAIM typed by the
+       customer. It is sanitized and stored for the admin to look up in
+       their real GCash app - it never marks anything as paid by itself. */
+    $paymentRef = trim($_POST['payment_ref'] ?? '');
+    if ($payment === 'gcash') {
+        if ($paymentRef === '') {
+            $errors[] = 'Please enter the reference number from your GCash receipt.';
+        } elseif (!preg_match('/^[A-Za-z0-9\-]{4,40}$/', $paymentRef)) {
+            $errors[] = 'That doesn\'t look like a valid GCash reference number (letters, numbers, dashes only).';
+        }
+    } else {
+        $paymentRef = '';
+    }
 
     if ($fullname === '')  $errors[] = 'Please enter your full name.';
     if ($phone === '')     $errors[] = 'Please enter a contact number.';
@@ -73,11 +88,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'qty'   => (int)$r['qty'],
                 ], $rows);
                 $stmt = $pdo->prepare(
-                    'INSERT INTO orders (user_id, items, total, fulfillment, payment_method, fullname, phone, address, city, notes, status, created_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
+                    'INSERT INTO orders (user_id, items, total, fulfillment, payment_method, payment_ref, fullname, phone, address, city, notes, status, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
                 );
                 $stmt->execute([
                     $user['id'], json_encode($items), (float)$total, $fulfillment, $payment,
+                    ($payment === 'gcash' ? $paymentRef : null),
                     $fullname, $phone, $address, $city, $notes, 'pending'
                 ]);
                 foreach ($rows as $r) {
@@ -102,7 +118,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             /* success path OUTSIDE the try/catch so the catches can never swallow it */
             if ($placed) {
                 cart_clear();
-                flash('success', 'Thank you! Your order has been placed - we\'ll contact you shortly to confirm.');
+                flash('success', $payment === 'gcash'
+                    ? 'Thank you! Your order has been placed - we\'ll verify your GCash payment and confirm shortly.'
+                    : 'Thank you! Your order has been placed - we\'ll contact you shortly to confirm.');
                 redirect('customer/account.php');
             }
         }
@@ -175,8 +193,28 @@ require __DIR__ . '/../includes/header.php';
             <input type="radio" name="payment_method" value="pickup_pay" <?= $payment === 'pickup_pay' ? 'checked' : '' ?>>
             <span><strong>Pay on Pickup</strong><small>Pay cash at the counter when you collect</small></span>
           </label>
+          <label class="fulfill-option">
+            <input type="radio" name="payment_method" value="gcash" id="pmGcash" <?= $payment === 'gcash' ? 'checked' : '' ?>>
+            <span><strong>GCash</strong><small>Pay online now, we'll verify and confirm</small></span>
+          </label>
         </div>
-        <p class="payment-note">No online payment yet — GCash is coming soon. We'll confirm your order and payment by phone.</p>
+
+        <div id="gcashBox" class="gcash-box" style="<?= $payment === 'gcash' ? '' : 'display:none;' ?> margin-top:14px; padding:16px; border:1px solid #ddd; border-radius:8px; background:#f9f7f2;">
+          <p style="margin:0 0 8px;">
+            Send <strong><?= peso($total) ?></strong> via GCash to:<br>
+            <strong><?= e(GCASH_NAME) ?></strong> — <strong style="font-size:1.1em; letter-spacing:.5px;"><?= e(GCASH_NUMBER) ?></strong>
+          </p>
+          <p style="margin:0 0 12px; font-size:.85rem; opacity:.75;">
+            After sending, enter the <strong>reference number</strong> from your GCash receipt below.
+            We'll check it against our GCash app and confirm your order — this usually takes a little while, not instantly.
+          </p>
+          <label>GCash reference number
+            <input type="text" name="payment_ref" id="paymentRef" placeholder="e.g. 1234567890123"
+                   value="<?= e($paymentRef) ?>" maxlength="40">
+          </label>
+        </div>
+
+        <p class="payment-note">GCash orders are held as <em>awaiting verification</em> until we confirm the payment on our end.</p>
       </div>
 
       <aside class="cart-summary checkout-summary">
@@ -202,8 +240,23 @@ require __DIR__ . '/../includes/header.php';
       var suggest = document.querySelector(
         'input[name="payment_method"][value="' + (r.value === 'pickup' ? 'pickup_pay' : 'cod') + '"]');
       if (suggest) suggest.checked = true;
+      toggleGcashBox();
     });
   });
+
+  /* show/hide the GCash instructions box — cosmetic only; the server is the
+     one that actually requires payment_ref when payment_method is gcash */
+  function toggleGcashBox() {
+    var box = document.getElementById('gcashBox');
+    var refInput = document.getElementById('paymentRef');
+    var isGcash = document.getElementById('pmGcash').checked;
+    box.style.display = isGcash ? '' : 'none';
+    if (refInput) refInput.required = isGcash;
+  }
+  document.querySelectorAll('input[name="payment_method"]').forEach(function (r) {
+    r.addEventListener('change', toggleGcashBox);
+  });
+  toggleGcashBox();
 </script>
 
 <?php require __DIR__ . '/../includes/footer.php'; ?>

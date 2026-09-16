@@ -300,7 +300,16 @@ require __DIR__ . '/../includes/header.php';
                   </ul>
                   <div class="order-total">Total: <strong><?= peso($o['total']) ?></strong></div>
                   <p class="order-detail"><strong>Fulfillment:</strong> <?= e(ucfirst($o['fulfillment'])) ?> ·
-                     <strong>Payment:</strong> <?= e(($o['payment_method'] ?? 'cod') === 'pickup_pay' ? 'Pay on Pickup' : 'Cash on Delivery') ?> ·
+                     <strong>Payment:</strong> <?php
+                       if (($o['payment_method'] ?? '') === 'gcash') {
+                           echo 'GCash · Ref #' . e($o['payment_ref'] ?: '—');
+                           echo !empty($o['payment_verified_at'])
+                               ? ' · <span style="color:#2a7a2a;">Verified ✔</span>'
+                               : ' · <span style="color:#b8860b;">Awaiting verification</span>';
+                       } else {
+                           echo e(($o['payment_method'] ?? 'cod') === 'pickup_pay' ? 'Pay on Pickup' : 'Cash on Delivery');
+                       }
+                     ?> ·
                      <strong>Address:</strong> <?= e($o['address']) ?>, <?= e($o['city']) ?></p>
                 </div>
               </article>

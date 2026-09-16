@@ -13,6 +13,13 @@ define('DB_PASS', '');              // XAMPP default password is empty
 define('SITE_NAME', "Shan's Guitar");
 define('SITE_CURRENCY', '₱');
 
+/* ----------  GCASH (manual verification) ----------
+   EDIT THIS to your real GCash-registered name and number.
+   This is shown PUBLICLY on checkout so customers know where to send
+   payment - that's normal, it's the same as posting a GCash QR in a shop. */
+define('GCASH_NAME',   'Shan\'s Guitar');
+define('GCASH_NUMBER', '0936 486 4726');
+
 /* ---------- PROJECT URL ROOT ----------
    Pages live in subfolders (admin/, auth/, customer/) but assets, links and
    redirects must always resolve from the project root. Computed from where

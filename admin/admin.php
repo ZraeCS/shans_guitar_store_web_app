@@ -268,6 +268,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('admin/admin.php?tab=guitars' . $qs);
     }
 
+    /* ---- Verify a GCash payment (the ONLY action that can confirm a GCash
+       order). Requires an authenticated admin session (already enforced
+       above) + CSRF. Stamps who verified it and when - an audit trail a
+       customer or attacker can never write to themselves. ---- */
+    if ($action === 'verify_gcash_payment') {
+        csrf_check();
+        $id = (int)($_POST['order_id'] ?? 0);
+        try {
+            $pdo->beginTransaction();
+            $cur = $pdo->prepare('SELECT status, payment_method FROM orders WHERE id = ? FOR UPDATE');
+            $cur->execute([$id]);
+            $row = $cur->fetch();
+            if (!$row) {
+                throw new RuntimeException('Order #' . $id . ' was not found.');
+            }
+            if ($row['payment_method'] !== 'gcash') {
+                throw new RuntimeException('Order #' . $id . ' is not a GCash order.');
+            }
+            $up = $pdo->prepare(
+                'UPDATE orders SET status = ?, status_updated_at = NOW(),
+                 payment_verified_at = NOW(), payment_verified_by = ? WHERE id = ?'
+            );
+            $up->execute(['confirmed', (int)$_SESSION['admin_id'], $id]);
+            $pdo->commit();
+            flash('success', 'Order #' . $id . ' — GCash payment verified ✔ and marked Confirmed.');
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            flash('error', $e instanceof RuntimeException ? $e->getMessage() : 'Could not verify order #' . $id . '. Please try again.');
+        }
+        redirect('admin/admin.php?tab=orders');
+    }
+
     /* ---- Update order status (also used by Accept / Reject buttons).
        Every change is stamped with status_updated_at; moving an order
        into 'cancelled' returns its items to stock exactly once. ---- */
@@ -279,11 +311,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (in_array($status, $allowedStatus, true)) {
             try {
                 $pdo->beginTransaction();
-                $cur = $pdo->prepare('SELECT status, items FROM orders WHERE id = ? FOR UPDATE');
+                $cur = $pdo->prepare('SELECT status, items, payment_method, payment_verified_at FROM orders WHERE id = ? FOR UPDATE');
                 $cur->execute([$id]);
                 $row = $cur->fetch();
                 if (!$row) {
                     throw new RuntimeException('Order #' . $id . ' was not found.');
+                }
+                /* a GCash order can only become "confirmed" through the
+                   dedicated Verify Payment action above - never via this
+                   generic dropdown, so there is exactly one door to "paid" */
+                if ($status === 'confirmed' && $row['payment_method'] === 'gcash' && empty($row['payment_verified_at'])) {
+                    throw new RuntimeException('Order #' . $id . ' is GCash and not yet verified. Use "Verify Payment" instead.');
                 }
                 if ($row['status'] !== $status) {
                     $up = $pdo->prepare('UPDATE orders SET status = ?, status_updated_at = NOW() WHERE id = ?');
@@ -793,8 +831,14 @@ if ($tab === 'orders') {
           <?php else: foreach ($orders as $o):
               $items = order_items_from_text($pdo, $o['items'] ?? null);
 
-              /* which quick-action buttons apply to this order? */
-              $showAccept = in_array($o['status'], ['pending', 'cancelled'], true);
+              $isGcash       = ($o['payment_method'] ?? '') === 'gcash';
+              $gcashVerified = $isGcash && !empty($o['payment_verified_at']);
+
+              /* which quick-action buttons apply to this order?
+                 an unverified GCash order shows "Verify Payment" instead of
+                 the plain Accept button - that is the only path to confirmed */
+              $showAccept = in_array($o['status'], ['pending', 'cancelled'], true) && !($isGcash && !$gcashVerified);
+              $showVerify = $isGcash && !$gcashVerified && in_array($o['status'], ['pending', 'cancelled'], true);
               $showReject = in_array($o['status'], ['pending', 'confirmed'], true);
           ?>
             <div class="panel" style="margin-bottom:16px; box-shadow:none;">
@@ -809,6 +853,7 @@ if ($tab === 'orders') {
                   <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
                   <select name="status" class="status-select order-status-badge status-<?= e($o['status']) ?>">
                     <?php foreach (['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] as $s): ?>
+                      <?php if ($s === 'confirmed' && $isGcash && !$gcashVerified) continue; /* use Verify Payment instead */ ?>
                       <option value="<?= $s ?>" <?= $o['status'] === $s ? 'selected' : '' ?>><?= ucfirst($s) ?></option>
                     <?php endforeach; ?>
                   </select>
@@ -835,12 +880,29 @@ if ($tab === 'orders') {
                     <?= ($o['fulfillment'] ?? '') === 'delivery'
                         ? 'Delivery to: ' . e(trim(($o['address'] ?? '') . ', ' . ($o['city'] ?? ''), ' ,'))
                         : 'In-store pickup' ?>
-                    · <strong>Payment:</strong> <?= e(($o['payment_method'] ?? 'cod') === 'pickup_pay' ? 'Pay on Pickup' : 'Cash on Delivery') ?>
+                    · <strong>Payment:</strong> <?php
+                      if ($isGcash) {
+                          echo 'GCash · Ref: <strong>' . e($o['payment_ref'] ?: '—') . '</strong>';
+                          echo $gcashVerified
+                              ? ' <span style="color:#2a7a2a; font-weight:700;">✔ Verified ' . e(date('M j, g:ia', strtotime($o['payment_verified_at']))) . '</span>'
+                              : ' <span style="color:#b8860b; font-weight:700;">⏳ Awaiting verification</span>';
+                      } else {
+                          echo e(($o['payment_method'] ?? 'cod') === 'pickup_pay' ? 'Pay on Pickup' : 'Cash on Delivery');
+                      }
+                    ?>
                     <?= !empty($o['notes']) ? '<br>Notes: ' . e($o['notes']) : '' ?>
                   </div>
                   <div style="display:flex; flex-direction:column; align-items:flex-end; gap:10px;">
-                    <?php if ($showAccept || $showReject): ?>
+                    <?php if ($showAccept || $showVerify || $showReject): ?>
                       <div style="display:flex; gap:8px;">
+                        <?php if ($showVerify): ?>
+                          <form method="post" action="admin.php" onsubmit="return confirm('Confirm: does your GCash app show a payment of <?= e(peso($o['total'])) ?> matching reference <?= e(addslashes($o['payment_ref'] ?? '')) ?>? This cannot be undone by mistake.');">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="action" value="verify_gcash_payment">
+                            <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
+                            <button class="btn-accept" type="submit">✓ VERIFY PAYMENT</button>
+                          </form>
+                        <?php endif; ?>
                         <?php if ($showAccept): ?>
                           <form method="post" action="admin.php" onsubmit="return confirm('Accept Order #<?= (int)$o['id'] ?> from <?= e(addslashes($o['fullname'] ?? 'Guest')) ?>?');">
                             <?= csrf_field() ?>
