@@ -4,6 +4,19 @@ Running record of feature batches and fixes. Commits are on `main`; newest batch
 
 ---
 
+## Fix: "404 not found" on the admin auth URL (2026-09-17)
+
+**Problem:** opening `auth/admin.php` (typed URL or old bookmark) gave Apache's *404 Not Found*. The admin auth gate — login form plus panel — actually lives in `admin/admin.php`, and only the **root** `admin.php` stub was redirecting there; nothing existed inside `auth/`.
+
+- **`auth/admin.php` (new):** 301 redirect to `<BASE_URL>/admin/admin.php` with the query string preserved (so `auth/admin.php?tab=orders` still works) — same "old addresses never 404" convention as the reorganizational stubs.
+- **`admin/login.php`, `admin/logout.php` (new):** the other URLs people naturally try inside `admin/` — `login.php` 301s to the auth gate; `logout.php` clears only the `admin_*` session keys (a customer login survives) and returns to the admin login, matching the sidebar's POST logout (same flash message).
+- **`admin/index.php` (new):** so `/admin/` (folder only, no file name) opens the login gate instead of Apache's bare "Index of /admin" listing.
+- **`assets/style.css`:** the hero background pointed at `../images/acoustic_guitars.jpg`, which does not exist — the file is `images/products/acoustic_guitars.jpg`. That dead path was returning 404 on every page load (visible in the Apache access log as a constant stream of `GET .../images/acoustic_guitars.jpg 404`).
+
+**Tested:** `/auth/admin.php` and `/auth/admin.php?tab=orders` → `301` → `/admin/admin.php` (login gate renders, 200); `/admin/login.php` → `301`; `/admin/logout.php` → `302` back to the gate; hero image now `200` (no 404s in `access.log`).
+
+---
+
 ## Project reorganization (2026-09-16)
 
 **Goal:** match the rubric's "organized structure" expectation — pages grouped by role, database files visible.
