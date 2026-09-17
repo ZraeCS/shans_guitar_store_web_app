@@ -2,7 +2,10 @@
 <?php
 require_once __DIR__ . '/../database/config.php';
 
-if (is_logged_in()) redirect('customer/account.php');
+/* admins count as signed in too — the panel is their home, and the shared
+   login page sends them there instead of showing a sign-up form */
+if (admin_logged_in())   redirect('admin/admin.php');
+if (is_logged_in())      redirect('customer/account.php');
 
 $errors = [];
 $name = $email = $phone = '';

@@ -3,7 +3,12 @@ require_once __DIR__ . '/../database/config.php';
 
 /* ============================================================
    SHAN'S GUITAR — Admin Panel
-   Self-contained: own auth (admins table), own layout/CSS.
+   Layout/CSS are its own, but the LOGIN IS SHARED with customers:
+   everyone signs in on auth/login.php ("Admin / Staff" tab), and this
+   page simply sends visitors who are not signed in back there.
+   Admin session helpers (admin_logged_in, current_admin,
+   logout_everything) live in database/config.php so the shared login
+   page and this panel always agree on who is an admin.
    Reuses config.php's db(), e(), peso(), csrf_field(), csrf_check(),
    flash(), take_flash(), redirect() helpers.
    Adapted to match the actual database schema:
@@ -14,18 +19,6 @@ require_once __DIR__ . '/../database/config.php';
 define('LOW_STOCK_THRESHOLD', 3);
 define('UPLOAD_DIR',  __DIR__ . '/../images/products/');
 define('UPLOAD_PATH', 'images/products/');
-
-/* ---------- ADMIN AUTH ---------- */
-function admin_logged_in(): bool { return !empty($_SESSION['admin_id']); }
-
-function current_admin(): ?array {
-    if (!admin_logged_in()) return null;
-    return [
-        'id'    => (int)$_SESSION['admin_id'],
-        'name'  => $_SESSION['admin_name']  ?? 'Admin',
-        'email' => $_SESSION['admin_email'] ?? '',
-    ];
-}
 
 function admin_initial(string $name): string {
     $name = trim($name);
@@ -161,35 +154,17 @@ function order_items_from_text(PDO $pdo, ?string $itemsText): array {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
-    /* ---- Admin login ---- */
-    if ($action === 'admin_login') {
-        csrf_check();
-        $email = trim($_POST['email'] ?? '');
-        $pass  = $_POST['password'] ?? '';
-        $stmt = $pdo->prepare('SELECT * FROM admins WHERE email = ?');
-        $stmt->execute([$email]);
-        $adminRow = $stmt->fetch();
-        if ($adminRow && password_verify($pass, $adminRow['password'])) {
-            session_regenerate_id(true);
-            $_SESSION['admin_id']    = (int)$adminRow['id'];
-            $_SESSION['admin_name']  = $adminRow['name'];
-            $_SESSION['admin_email'] = $adminRow['email'];
-            flash('success', 'Welcome back, ' . explode(' ', $adminRow['name'])[0] . '!');
-            redirect('admin/admin.php');
-        }
-        flash('error', 'Incorrect email or password.');
-        redirect('admin/admin.php');
-    }
+    /* NOTE: there is no admin_login branch here any more — logging in happens
+       on the SHARED page (auth/login.php → "Admin / Staff" tab). */
 
-    /* Everything below requires an authenticated admin */
-    if (!admin_logged_in()) redirect('admin/admin.php');
+    /* Everything below requires an authenticated admin (see the shared login) */
+    if (!admin_logged_in()) redirect('auth/login.php?tab=admin');
 
     /* ---- Logout ---- */
     if ($action === 'admin_logout') {
         csrf_check();
-        unset($_SESSION['admin_id'], $_SESSION['admin_name'], $_SESSION['admin_email']);
-        flash('info', "You've been logged out.");
-        redirect('admin/admin.php');
+        logout_everything();          /* COMPLETE logout: customer + staff + cookie */
+        redirect('auth/login.php?tab=admin');
     }
 
     /* ---- Add / edit guitar ---- */
@@ -374,55 +349,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 /* ============================================================
-   GATE: show login screen if not authenticated
+   GATE: the login form is SHARED with customers now
+   (auth/login.php → the "Admin / Staff" tab), so visitors who are
+   not signed in are simply sent there. Nothing is rendered here.
    ============================================================ */
 if (!admin_logged_in()) {
-    $flash = take_flash();
-    ?>
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Admin Login — Shan's Guitar</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;1,500&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../assets/admin.css?v=<?= filemtime(__DIR__ . '/../assets/admin.css') ?>">
-    </head>
-    <body class="admin-body">
-      <?php if ($flash): ?>
-        <div class="admin-flash flash-<?= e($flash['type']) ?>" id="adminFlash"><?= e($flash['msg']) ?></div>
-      <?php endif; ?>
-      <div class="admin-login-wrap">
-        <div class="admin-login-card">
-          <div class="admin-login-brand"><span class="dot"></span> shan's guitar</div>
-          <p class="eyebrow">Staff Only</p>
-          <h1>Admin Login</h1>
-          <p class="admin-login-sub">Sign in to manage inventory and orders.</p>
-          <form method="post" class="admin-form" action="admin.php">
-            <?= csrf_field() ?>
-            <input type="hidden" name="action" value="admin_login">
-            <label>Email address
-              <input type="email" name="email" placeholder="admin@shansguitar.com" required autofocus>
-            </label>
-            <label>Password
-              <input type="password" name="password" placeholder="••••••••" required>
-            </label>
-            <button class="btn btn-gold full" type="submit">LOG IN</button>
-          </form>
-          <div class="admin-login-note">This area is restricted to Shan's Guitar staff. Customers should head back to the <a href="../index.php" style="color:var(--gold); font-weight:700;">shop</a>.</div>
-        </div>
-      </div>
-      <script>
-        const f = document.getElementById('adminFlash');
-        if (f) setTimeout(() => f.remove(), 3500);
-      </script>
-    </body>
-    </html>
-    <?php
-    exit;
+    flash('info', 'Please sign in with a staff account to open the admin panel.');
+    redirect('auth/login.php?tab=admin');
 }
-
 /* ============================================================
    AUTHENTICATED — GATHER DATA FOR THE CURRENT TAB
    ============================================================ */

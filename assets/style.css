@@ -944,6 +944,30 @@ h2 {
 .auth-alt a { color: var(--gold); font-weight: 700; }
 .auth-alt a:hover { text-decoration: underline; }
 
+/* shared login page: CUSTOMER / ADMIN-STAFF tabs (auth/login.php) */
+.auth-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-bottom: 24px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+.auth-tabs .tab { text-decoration: none; }
+
+.auth-note {
+  margin-top: 18px;
+  padding: 12px 15px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(196, 135, 58, 0.08);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  opacity: 0.85;
+}
+.auth-note a { color: var(--gold); font-weight: 700; }
+.auth-note a:hover { text-decoration: underline; }
+
 .form-errors {
   margin-bottom: 20px;
   padding: 14px 18px;

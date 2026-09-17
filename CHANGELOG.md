@@ -4,6 +4,25 @@ Running record of feature batches and fixes. Commits are on `main`; newest batch
 
 ---
 
+## Shared login for customers + staff (2026-09-17)
+
+**Goal:** one login page for everyone. The admin panel no longer carries its own login form — `auth/login.php` now has two tabs, **CUSTOMER** and **ADMIN / STAFF**, and the panel sends visitors there.
+
+- **`auth/login.php` is the single login entry point:**
+  - `?tab=admin` opens the staff tab (default is the customer tab). The tabs are plain links, so they work with JavaScript disabled and preserve `?next=`.
+  - **Admins are always checked first:** the `admins` table is consulted before `users`, so a staff email + password signs in as staff and lands on `admin/admin.php` — *even if it was typed on the customer tab*.
+  - One identity per session: a customer sign-in drops any admin keys and a staff sign-in drops any customer keys. A signed-in admin who opens `auth/login.php` goes straight to the panel, while a signed-in customer who opens `?tab=admin` still gets the staff form (no redirect loop).
+  - `?next=` is sanitized once (inside-site paths only, no `//`/scheme) and the clean value is reused for the tab links, the form action and the post-login redirect.
+- **`admin/admin.php`:** inline login card and the `admin_login` POST branch removed. The gate now flashes "Please sign in with a staff account to open the admin panel." and redirects to `auth/login.php?tab=admin`; deep-linked panel URLs come back after sign-in via `?next=`. `admin_logged_in()` / `current_admin()` moved into `database/config.php` so the login page and the panel share one definition.
+- **Complete logout** — `logout_everything()` in `database/config.php`, used by `auth/logout.php`, `admin/logout.php` and the panel's Log out button: clears customer **and** admin session data, deletes the old cookie, starts a brand-new session and re-issues the cookie by hand (PHP sends the session cookie only once per request, so the plain destroy/start left the browser cookie-less and the goodbye flash was lost — this fixes that).
+- **`auth/register.php`:** admins are redirected to the panel instead of being offered a customer sign-up.
+- **`assets/style.css`:** `.auth-tabs` and `.auth-note` styles for the new tabs.
+- **`admin/login.php`:** now redirects to `auth/login.php?tab=admin`.
+
+**Tested (live, with throwaway accounts that were deleted afterwards):** staff sign-in on the staff tab *and* on the customer tab both → `admin/admin.php`; customer sign-in → `customer/account.php`; wrong password keeps the correct tab active with "Incorrect email or password."; missing CSRF token → 403; `?next=https://evil.com` is discarded and never echoed; `?next=/…/cart.php` is honoured; a customer cannot reach the panel; a signed-in admin opening the login page is sent to the panel; sidebar Log out and `admin/logout.php` wipe both identities (panel *and* account/cart are locked afterwards) and show the "You have been logged out." flash; `auth/logout.php` returns to the shop; all four panel tabs plus `index/shop/about/brands/cart/checkout` return 200 with no PHP warnings or notices; Apache's error log stayed clean; DB back to 2 users / 1 admin with the real admin row untouched.
+
+---
+
 ## Fix: "404 not found" on the admin auth URL (2026-09-17)
 
 **Problem:** opening `auth/admin.php` (typed URL or old bookmark) gave Apache's *404 Not Found*. The admin auth gate — login form plus panel — actually lives in `admin/admin.php`, and only the **root** `admin.php` stub was redirecting there; nothing existed inside `auth/`.

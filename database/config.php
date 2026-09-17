@@ -100,6 +100,58 @@ function require_login(): void {
     }
 }
 
+/* ---------- ADMIN / STAFF Authentication ----------
+   Staff live in their own `admins` table but sign in on the SAME shared
+   login page as customers (auth/login.php → "Admin / Staff" tab). Keeping
+   these helpers here means auth/login.php and admin/admin.php always agree
+   on what a logged-in admin is. */
+function admin_logged_in(): bool {
+    return !empty($_SESSION['admin_id']);
+}
+
+function current_admin(): ?array {
+    if (!admin_logged_in()) return null;
+    return [
+        'id'    => (int)$_SESSION['admin_id'],
+        'name'  => $_SESSION['admin_name']  ?? 'Admin',
+        'email' => $_SESSION['admin_email'] ?? '',
+    ];
+}
+
+/* ---------- COMPLETE LOGOUT ----------
+   Wipes the WHOLE session — customer keys, admin keys, session storage and
+   the old cookie — then starts a brand-new empty session so "log out" can
+   never leave half a login behind.
+   The fresh session cookie is re-issued by hand because PHP sends the
+   session cookie only once per request: without that extra header the
+   browser would end up with no cookie at all and the goodbye flash below
+   would be lost. Used by auth/logout.php, admin/logout.php and the admin
+   panel's logout button. */
+function logout_everything(): void {
+    $_SESSION = [];
+
+    $p = session_get_cookie_params();
+    $cookie = [
+        'expires'  => time() - 42000,                    /* delete the old cookie */
+        'path'     => ($p['path'] ?? '') !== '' ? $p['path'] : '/',
+        'domain'   => $p['domain'] ?? '',
+        'secure'   => !empty($p['secure']),
+        'httponly' => !empty($p['httponly']),
+        'samesite' => ($p['samesite'] ?? '') !== '' ? $p['samesite'] : 'Lax',
+    ];
+    if (ini_get('session.use_cookies')) setcookie(session_name(), '', $cookie);
+
+    session_destroy();
+    session_start();
+    session_regenerate_id(true);                         /* brand-new id, old one is dead */
+
+    if (ini_get('session.use_cookies')) {
+        $cookie['expires'] = 0;                          /* keep the fresh, empty session */
+        setcookie(session_name(), session_id(), $cookie);
+    }
+    flash('info', 'You have been logged out.');
+}
+
 /* ---------- CART (bas on session) ---------- */
 function cart(): array {
     return $_SESSION['cart'] ?? [];

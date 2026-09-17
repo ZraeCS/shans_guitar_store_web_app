@@ -1,9 +1,8 @@
 <?php
-/* Admin logout — reachable by URL (the sidebar uses a POST form in admin.php).
-   Clears only the admin_* session keys so a customer login survives, exactly
-   like the POST logout inside admin.php. */
+/* Admin logout — a COMPLETE logout (customer + admin session data and the
+   session cookie are all wiped), then back to the shared login page.
+   The sidebar button in admin.php calls the same logout_everything(). */
 require_once __DIR__ . '/../database/config.php';
 
-unset($_SESSION['admin_id'], $_SESSION['admin_name'], $_SESSION['admin_email']);
-flash('info', "You've been logged out.");
-redirect('admin/admin.php');
+logout_everything();
+redirect('auth/login.php?tab=admin');

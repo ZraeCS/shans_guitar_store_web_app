@@ -1,14 +1,8 @@
 <?php
 require_once __DIR__ . '/../database/config.php';
 
-$_SESSION = [];
-if (ini_get('session.use_cookies')) {
-    $p = session_get_cookie_params();
-    setcookie(session_name(), '', time() - 42000,
-        $p['path'], $p['domain'], $p['secure'], $p['httponly']);
-}
-session_destroy();
-
-session_start();
-flash('info', 'You have been logged out.');
+/* COMPLETE logout: wipes customer AND admin session data plus the session
+   cookie in one go (see logout_everything() in database/config.php). */
+logout_everything();
 redirect('index.php');
+
