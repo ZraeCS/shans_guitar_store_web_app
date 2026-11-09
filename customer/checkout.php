@@ -1,4 +1,3 @@
-
 <?php
 require_once __DIR__ . '/../database/config.php';
 require_once __DIR__ . '/../includes/products.php';
@@ -66,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$errors) {
         $pdo = db();
         if (!$pdo) {
-            $errors[] = 'Could not connect to the database — check your MySQL settings in includes/config.php and that MySQL is running in XAMPP.';
+            $errors[] = 'Could not connect to the database — check that Docker is running (docker compose up -d in the admin project) and the settings in database/config.php.';
         } else {
             $placed = false;
             try {
@@ -81,21 +80,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         throw new RuntimeException($r['p']['name'] . ' - only ' . (int)$have . ' left. Please update your cart.');
                     }
                 }
-                $items = array_map(fn($r) => [
-                    'id'    => (int)$r['p']['id'],
-                    'name'  => $r['p']['name'],
-                    'price' => (float)$r['p']['price'],
-                    'qty'   => (int)$r['qty'],
-                ], $rows);
+                /* 1) the order itself */
                 $stmt = $pdo->prepare(
-                    'INSERT INTO orders (user_id, items, total, fulfillment, payment_method, payment_ref, fullname, phone, address, city, notes, status, created_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
+                    'INSERT INTO orders (user_id, total, fulfillment, payment_method, payment_ref, fullname, phone, address, city, notes, status, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
                 );
                 $stmt->execute([
-                    $user['id'], json_encode($items), (float)$total, $fulfillment, $payment,
+                    $user['id'], number_format((float)$total, 2, '.', ''), $fulfillment, $payment,
                     ($payment === 'gcash' ? $paymentRef : null),
-                    $fullname, $phone, $address, $city, $notes, 'pending'
+                    $fullname, $phone, $address, $city, ($notes !== '' ? $notes : null), 'pending'
                 ]);
+                $orderId = (int)$pdo->lastInsertId();
+
+                /* 2) one order_items row per guitar, with the price at this moment
+                   (so the order never changes if the price changes later) */
+                $line = $pdo->prepare('INSERT INTO order_items (order_id, guitar_id, quantity, unit_price) VALUES (?, ?, ?, ?)');
+                foreach ($rows as $r) {
+                    $line->execute([$orderId, (int)$r['p']['id'], (int)$r['qty'], number_format((float)$r['p']['price'], 2, '.', '')]);
+                }
                 foreach ($rows as $r) {
                     $dec = $pdo->prepare('UPDATE guitars SET stock = stock - ? WHERE id = ? AND stock >= ?');
                     $dec->execute([(int)$r['qty'], (int)$r['p']['id'], (int)$r['qty']]);

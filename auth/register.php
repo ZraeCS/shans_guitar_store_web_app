@@ -1,10 +1,6 @@
-
 <?php
 require_once __DIR__ . '/../database/config.php';
 
-/* admins count as signed in too — the panel is their home, and the shared
-   login page sends them there instead of showing a sign-up form */
-if (admin_logged_in())   redirect('admin/admin.php');
 if (is_logged_in())      redirect('customer/account.php');
 
 $errors = [];
@@ -26,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$errors) {
         $pdo = db();
         if (!$pdo) {
-            $errors[] = 'Could not connect to the database. Check your MySQL settings in includes/config.php and that MySQL is running in XAMPP.';
+            $errors[] = 'Could not connect to the database. Check that Docker is running (docker compose up -d in the admin project) and the settings in database/config.php.';
         } else {
             $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
             $stmt->execute([$email]);
@@ -34,8 +30,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'That email is already registered. Try logging in instead.';
             } else {
                 $hash = password_hash($pass, PASSWORD_DEFAULT);
-                $ins = $pdo->prepare('INSERT INTO users (name, email, phone, password, created_at) VALUES (?, ?, ?, ?, NOW())');
-                $ins->execute([$name, $email, $phone, $hash]);
+                /* every sign-up is a customer (role = 'user'); staff accounts are made by an admin */
+                $ins = $pdo->prepare("INSERT INTO users (name, email, phone, password, role, created_at) VALUES (?, ?, ?, ?, 'user', NOW())");
+                $ins->execute([$name, $email, ($phone !== '' ? $phone : null), $hash]);
 
                 session_regenerate_id(true);
                 $_SESSION['user_id']    = (int)$pdo->lastInsertId();

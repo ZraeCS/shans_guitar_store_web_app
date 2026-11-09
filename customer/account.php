@@ -14,11 +14,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         csrf_check();
         $orderId = (int)($_POST['order_id'] ?? 0);
         if (!$pdo) {
-            flash('error', 'Could not connect to the database — check your MySQL settings in includes/config.php and that MySQL is running in XAMPP.');
+            flash('error', 'Could not connect to the database — check that Docker is running (docker compose up -d in the admin project).');
         } else {
             try {
                 $pdo->beginTransaction();
-                $st = $pdo->prepare('SELECT status, items FROM orders WHERE id = ? AND user_id = ? FOR UPDATE');
+                $st = $pdo->prepare('SELECT status FROM orders WHERE id = ? AND user_id = ? FOR UPDATE');
                 $st->execute([$orderId, $user['id']]);
                 $order = $st->fetch();
 
@@ -29,10 +29,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$order || $up->rowCount() !== 1) {
                     throw new RuntimeException('This order can no longer be cancelled.');
                 }
-                /* return every item to stock */
-                foreach (json_decode($order['items'], true) ?: [] as $it) {
-                    $rs = $pdo->prepare('UPDATE guitars SET stock = stock + ? WHERE id = ?');
-                    $rs->execute([(int)($it['qty'] ?? 0), (int)($it['id'] ?? 0)]);
+                /* return every item to stock (from the order_items rows) */
+                $rs = $pdo->prepare('UPDATE guitars SET stock = stock + ? WHERE id = ?');
+                foreach (order_lines($pdo, [$orderId])[$orderId] ?? [] as $it) {
+                    $rs->execute([$it['qty'], $it['id']]);
                 }
                 $pdo->commit();
                 flash('success', 'Order #' . $orderId . ' cancelled — its items are back in stock.');
@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$errors && $pdo) {
         $st = $pdo->prepare('UPDATE users SET name = ?, email = ?, phone = ? WHERE id = ?');
-        $st->execute([$name, $email, $phone, $user['id']]);
+        $st->execute([$name, $email, ($phone !== '' ? $phone : null), $user['id']]);
 
         $_SESSION['user_name']  = $name;   /* keep the header in sync */
         $_SESSION['user_email'] = $email;
@@ -104,11 +104,17 @@ if ($pdo) {
     $stmt->execute([$user['id']]);
     $orders = $stmt->fetchAll();
 
+    /* attach each order's lines from order_items (same shape as the old JSON) */
+    $lines = order_lines($pdo, array_column($orders, 'id'));
+    foreach ($orders as $i => $o) {
+        $orders[$i]['items'] = $lines[(int)$o['id']] ?? [];
+    }
+
     foreach ($orders as $o) {
         if (($o['status'] ?? '') === 'cancelled') continue;
         $stats['orders']++;
         $stats['spent'] += (float)$o['total'];
-        foreach (json_decode($o['items'], true) ?: [] as $it) {
+        foreach ($o['items'] as $it) {
             $stats['items'] += (int)($it['qty'] ?? 0);
         }
     }
@@ -253,7 +259,7 @@ require __DIR__ . '/../includes/header.php';
           <div class="orders-list">
             <?php foreach ($orders as $o): ?>
               <?php
-                $items     = json_decode($o['items'], true) ?: [];
+                $items     = $o['items'];
                 $status    = ucfirst($o['status']);
                 $isPending = ($o['status'] === 'pending');
                 $cancelled = ($o['status'] === 'cancelled');
