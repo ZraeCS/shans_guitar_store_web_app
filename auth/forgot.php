@@ -76,8 +76,8 @@ require __DIR__ . '/../includes/header.php';
     <?php if ($sent): ?>
       <p class="auth-sub">If an account exists for <strong><?= e($email) ?></strong>, we've sent a link to reset its password. It works for 30 minutes.</p>
       <p class="auth-note">No email after a minute? Check your spam folder, or <a href="forgot.php">try again</a>.
-        <?php if (in_array(MAIL_HOST, ['127.0.0.1', 'localhost'], true)): ?>
-          <br><strong>Testing locally?</strong> Emails are caught by Mailpit: <a href="http://localhost:8025" target="_blank" rel="noopener">open the Mailpit inbox</a>.
+        <?php if (MAIL_INBOX_URL !== ''): ?>
+          <br><strong>Testing locally?</strong> Emails are caught by Mailpit: <a href="<?= e(MAIL_INBOX_URL) ?>" target="_blank" rel="noopener">open the Mailpit inbox</a>.
         <?php endif; ?>
       </p>
       <p class="auth-alt"><a href="login.php">Back to log in</a></p>

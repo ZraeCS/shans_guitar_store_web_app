@@ -3,31 +3,42 @@
    SHAN'S GUITAR — database/config.php
  */
 
+/* ----------  WHERE THE SETTINGS COME FROM ----------
+   In Docker, compose.yaml passes the settings as environment variables
+   (DB_HOST, MAIL_HOST, SITE_URL...). Without Docker (XAMPP), those are not
+   set and the default values below are used. The same file works in both. */
+function sg_env(string $name, string $default): string
+{
+    $value = getenv($name);
+    return ($value === false || $value === '') ? $default : $value;
+}
+
 /* ----------  DATABASE ----------
-   Since the Symfony admin (Nov 2026) the store and the admin panel share ONE
-   database: the MySQL container from the admin project's compose.yaml
-   (start it with `docker compose up -d` in the admin project folder).
-   XAMPP's own MySQL is no longer used by the store. */
-define('DB_HOST', '127.0.0.1');
-define('DB_PORT', '3313');          // the Docker MySQL port ("3313:3306" in compose.yaml)
-define('DB_NAME', 'shansguitar');
-define('DB_USER', 'root');
-define('DB_PASS', 'root');          // MYSQL_ROOT_PASSWORD in compose.yaml
+   The store and the admin panel share ONE database: the MySQL container from
+   the admin project's compose.yaml. Inside Docker the store reaches it by its
+   container name on port 3306; from XAMPP, through 127.0.0.1:3313. */
+define('DB_HOST', sg_env('DB_HOST', '127.0.0.1'));
+define('DB_PORT', sg_env('DB_PORT', '3313'));      // "3313:3306" in compose.yaml
+define('DB_NAME', sg_env('DB_NAME', 'shansguitar'));
+define('DB_USER', sg_env('DB_USER', 'root'));
+define('DB_PASS', sg_env('DB_PASS', 'root'));      // MYSQL_ROOT_PASSWORD in compose.yaml
 
 /* ----------  LINKS ----------
    SITE_URL: the store's own address, used to build links inside emails.
-   It is FIXED on purpose: building it from the browser's Host header would
-   let an attacker make reset emails point to their own website.
+   It is FIXED (set here or in compose.yaml), never taken from the browser:
+   building it from the Host header would let an attacker make reset emails
+   point to their own website.
    ADMIN_PANEL_URL: the Symfony admin's login page. */
-define('SITE_URL', 'http://localhost/shans_guitar');
-define('ADMIN_PANEL_URL', 'http://127.0.0.1:8000/login');
+define('SITE_URL', rtrim(sg_env('SITE_URL', 'http://localhost/shans_guitar'), '/'));
+define('ADMIN_PANEL_URL', sg_env('ADMIN_PANEL_URL', 'http://127.0.0.1:8000/login'));
 
 /* ----------  EMAIL (forgot password) ----------
    Mailpit (a Docker container) catches every email the store sends, so
-   nothing reaches real inboxes while developing. Read them at
-   http://localhost:8025 */
-define('MAIL_HOST', '127.0.0.1');
-define('MAIL_PORT', 1025);
+   nothing reaches real inboxes while developing. Its inbox is MAIL_INBOX_URL
+   (http://localhost:8025); leave MAIL_INBOX_URL empty on a real server. */
+define('MAIL_HOST', sg_env('MAIL_HOST', '127.0.0.1'));
+define('MAIL_PORT', (int) sg_env('MAIL_PORT', '1025'));
+define('MAIL_INBOX_URL', sg_env('MAIL_INBOX_URL', 'http://localhost:8025'));
 define('MAIL_FROM', 'no-reply@shansguitar.com');
 define('MAIL_FROM_NAME', "Shan's Guitar");
 
