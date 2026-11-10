@@ -6,8 +6,9 @@ require_once __DIR__ . '/../database/config.php';
    One page, two tabs:
      CUSTOMER      -> signs in against `users` (role = 'user')
      ADMIN / STAFF -> a doorway to the Symfony admin panel.
-                      Staff are `users` rows with role = 'admin' and
-                      they sign in there (ADMIN_PANEL_URL), not here.
+                      Staff are `users` rows with role = 'staff' or
+                      'admin'; they sign in there (ADMIN_PANEL_URL), not here.
+     Accounts with status = 'disabled' cannot sign in anywhere.
    ============================================================ */
 
 /* which tab is showing — ?tab=admin on the URL */
@@ -58,7 +59,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tab === 'customer') {
             $user = $stmt->fetch();
 
             if ($user && password_verify($pass, $user['password'])) {
-                if (($user['role'] ?? 'user') === 'admin') {
+                if (($user['status'] ?? 'active') === 'disabled') {
+                    /* switched off by an admin in the admin panel */
+                    $errors[] = 'This account is disabled. Please contact Shan’s Guitar.';
+                } elseif (in_array($user['role'] ?? 'user', ['admin', 'staff'], true)) {
                     /* staff account: right password, wrong door */
                     $errors[] = 'This is a staff account. Use the Admin / Staff tab to open the admin panel.';
                 } else {

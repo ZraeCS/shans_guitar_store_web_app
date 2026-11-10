@@ -48,7 +48,7 @@ if ($row && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (!$errors) {
-            if ($row['role'] === 'admin') {
+            if (in_array($row['role'], ['admin', 'staff'], true)) {
                 flash('success', 'Password changed. Staff: sign in on the admin panel with your new password.');
                 redirect('auth/login.php?tab=admin');
             }
